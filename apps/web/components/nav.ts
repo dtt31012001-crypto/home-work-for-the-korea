@@ -1,4 +1,4 @@
-import { BookOpen, Building2, CalendarDays, GraduationCap, Home, School, Settings, Users, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarRange, Building2, CalendarDays, GraduationCap, Home, School, Settings, Users, type LucideIcon } from "lucide-react";
 
 export interface NavDef {
   href: string;
@@ -26,4 +26,14 @@ export const CENTER_ADMIN_NAV: NavDef[] = [
 export const TEACHER_NAV: NavDef[] = [
   { href: "/giao-vien", label: "Hôm nay", icon: Home, exact: true, also: ["/giao-vien/buoi"] },
   { href: "/giao-vien/lop", label: "Lớp của tôi", icon: School },
+];
+
+export const STUDENT_NAV: NavDef[] = [
+  { href: "/hoc", label: "Hôm nay", icon: Home, exact: true },
+  { href: "/hoc/lich", label: "Lịch học", icon: CalendarRange },
+];
+
+export const PARENT_NAV: NavDef[] = [
+  { href: "/phu-huynh", label: "Hôm nay", icon: Home, exact: true },
+  { href: "/phu-huynh/lich", label: "Lịch học", icon: CalendarRange },
 ];

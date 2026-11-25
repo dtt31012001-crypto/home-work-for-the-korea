@@ -11,6 +11,7 @@ import { CurriculumModule } from "./curriculum/curriculum.module";
 import { PeopleModule } from "./people/people.module";
 import { ClassesModule } from "./classes/classes.module";
 import { AttendanceModule } from "./attendance/attendance.module";
+import { LearnerModule } from "./learner/learner.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PrismaService } from "./prisma/prisma.service";
@@ -39,6 +40,7 @@ class HealthController {
     PeopleModule,
     ClassesModule,
     AttendanceModule,
+    LearnerModule,
   ],
   controllers: [HealthController],
   providers: [
