@@ -48,3 +48,13 @@ test("đọc danh sách bài nhập nhiều dòng", () => {
   assert.equal(r[2]!.error, "Số bài không hợp lệ");
   assert.equal(r[3]!.error, "Thiếu tên bài");
 });
+
+import { ageOn, isMinor } from "./people";
+
+test("tính tuổi và chưa thành niên theo ngày", () => {
+  assert.equal(ageOn("2008-11-26", "2026-11-25"), 17);
+  assert.equal(ageOn("2008-11-25", "2026-11-25"), 18);
+  assert.equal(isMinor("2010-01-01", "2026-11-25"), true);
+  assert.equal(isMinor("2000-01-01", "2026-11-25"), false);
+  assert.equal(isMinor(null, "2026-11-25"), false);
+});

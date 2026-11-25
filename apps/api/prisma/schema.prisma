@@ -109,6 +109,8 @@ model Room {
 model User {
   id               String              @id @default(uuid(7)) @db.Uuid
   displayName      String              @map("display_name")
+  /// Ngày sinh – dùng để xác định học viên chưa thành niên (D-B21)
+  dateOfBirth      DateTime?           @map("date_of_birth") @db.Date
   status           UserStatus          @default(ACTIVE)
   /// Tăng khi khóa tài khoản / đổi hoặc đặt lại mật khẩu → mọi access token cũ mất hiệu lực ngay
   tokenVersion     Int                 @default(0) @map("token_version")
@@ -326,4 +328,37 @@ model OrganizationCurriculum {
 
   @@index([organizationId])
   @@map("organization_curriculum")
+}
+
+enum GuardianLinkStatus {
+  /// Học viên đã thành niên: chờ học viên đồng ý chia sẻ dữ liệu
+  PENDING_CONSENT
+  ACTIVE
+  REJECTED
+  REVOKED
+}
+
+/// Liên kết phụ huynh – học viên do trung tâm tạo và xác thực (D-B21). RLS theo organization_id.
+model GuardianLink {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  organizationId   String             @map("organization_id") @db.Uuid
+  guardianUserId   String             @map("guardian_user_id") @db.Uuid
+  studentUserId    String             @map("student_user_id") @db.Uuid
+  /// vd. Bố, Mẹ, Người giám hộ
+  relationship     String
+  status           GuardianLinkStatus
+  verifiedById     String             @map("verified_by") @db.Uuid
+  verifiedAt       DateTime           @default(now()) @map("verified_at") @db.Timestamptz(6)
+  /// Cách trung tâm xác minh quyền giám hộ (bắt buộc với học viên chưa thành niên)
+  verificationNote String?            @map("verification_note")
+  consentAt        DateTime?          @map("consent_at") @db.Timestamptz(6)
+  rejectedAt       DateTime?          @map("rejected_at") @db.Timestamptz(6)
+  revokedAt        DateTime?          @map("revoked_at") @db.Timestamptz(6)
+  revokedById      String?            @map("revoked_by") @db.Uuid
+  revokedReason    String?            @map("revoked_reason")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId, studentUserId])
+  @@index([guardianUserId])
+  @@map("guardian_link")
 }

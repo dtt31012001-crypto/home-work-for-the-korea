@@ -1,6 +1,7 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, ParseEnumPipe, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
-import { IssueAccountInput, issueAccountSchema } from "@th/contracts";
+import { IssueAccountInput, UpdateProfileInput, issueAccountSchema, updateProfileSchema } from "@th/contracts";
+import { Role } from "@prisma/client";
 import { clientMeta } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { AuthContext, CurrentAuth } from "../auth/decorators";
@@ -15,8 +16,36 @@ export class AccountsController {
   constructor(private readonly accounts: AccountsService) {}
 
   @Get()
-  list(@CurrentAuth() auth: AuthContext, @Param("orgId", uuid) orgId: string) {
-    return this.accounts.list(auth.userId, orgId);
+  list(
+    @CurrentAuth() auth: AuthContext,
+    @Param("orgId", uuid) orgId: string,
+    @Query("role", new ParseEnumPipe(Role, { optional: true, errorHttpStatusCode: 400 })) role?: Role,
+  ) {
+    return this.accounts.list(auth.userId, orgId, role);
+  }
+
+  @Patch(":userId")
+  @HttpCode(204)
+  async update(
+    @CurrentAuth() auth: AuthContext,
+    @Param("orgId", uuid) orgId: string,
+    @Param("userId", uuid) userId: string,
+    @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput,
+    @Req() req: Request,
+  ) {
+    await this.accounts.updateProfile(auth.userId, orgId, userId, body, clientMeta(req));
+  }
+
+  @Post(":userId/roles/:role/revoke")
+  @HttpCode(204)
+  async revokeRole(
+    @CurrentAuth() auth: AuthContext,
+    @Param("orgId", uuid) orgId: string,
+    @Param("userId", uuid) userId: string,
+    @Param("role", new ParseEnumPipe(Role, { errorHttpStatusCode: 404 })) role: Role,
+    @Req() req: Request,
+  ) {
+    await this.accounts.revokeRole(auth.userId, orgId, userId, role, clientMeta(req));
   }
 
   @Post()

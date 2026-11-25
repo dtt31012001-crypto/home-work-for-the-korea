@@ -17,6 +17,7 @@ export function IssueAccountDialog({
   endpoint,
   body,
   extraFields,
+  withDateOfBirth,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,10 +26,13 @@ export function IssueAccountDialog({
   endpoint: string;
   body: Record<string, unknown>;
   extraFields?: ReactNode;
+  /** Hiện ô ngày sinh (học viên – để xác định chưa thành niên khi liên kết phụ huynh) */
+  withDateOfBirth?: boolean;
 }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [dob, setDob] = useState("");
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IssueAccountResponse>();
@@ -38,6 +42,7 @@ export function IssueAccountDialog({
     setName("");
     setPhone("");
     setEmail("");
+    setDob("");
     setError(undefined);
     setResult(undefined);
     onClose();
@@ -54,6 +59,7 @@ export function IssueAccountDialog({
         displayName: name,
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
+        dateOfBirth: withDateOfBirth && dob ? dob : undefined,
         ...body,
       });
       setResult(res);
@@ -80,6 +86,9 @@ export function IssueAccountDialog({
           <Field label="Họ và tên" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
           <Field label="Số điện thoại" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="off" />
           <Field label="Email (không bắt buộc)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
+          {withDateOfBirth && (
+            <Field label="Ngày sinh" type="date" hint="Cần để xác định học viên chưa thành niên khi liên kết phụ huynh." value={dob} onChange={(e) => setDob(e.target.value)} />
+          )}
           {extraFields}
           <div className="flex justify-end gap-2">
             <SecondaryButton type="button" onClick={close}>

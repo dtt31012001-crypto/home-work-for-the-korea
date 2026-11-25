@@ -39,6 +39,11 @@ export const issueAccountSchema = z
     phone: z.string().trim().max(32).optional(),
     email: z.string().trim().max(254).optional(),
     role: z.enum(ISSUABLE_ROLES),
+    /** Ngày sinh (YYYY-MM-DD) – học viên: để xác định chưa thành niên khi liên kết phụ huynh */
+    dateOfBirth: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
   })
   .refine((v) => Boolean(v.phone) || Boolean(v.email), { message: "Cần số điện thoại hoặc email", path: ["phone"] });
 export type IssueAccountInput = z.infer<typeof issueAccountSchema>;
