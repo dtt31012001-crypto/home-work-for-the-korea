@@ -1,0 +1,14 @@
+# Quét bí mật: dùng toàn bộ luật mặc định của gitleaks, chỉ bỏ qua dữ liệu kiểm thử cố ý
+# (mật khẩu thử dễ đọc trong test) và file cấu hình mẫu có giá trị giả.
+title = "TH – Tiếng Hàn"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Dữ liệu kiểm thử và file mẫu (không phải bí mật thật)"
+paths = [
+  '''^apps/api/test/''',
+  '''\.test\.ts$''',
+  '''(^|/)\.env\.example$''',
+]
