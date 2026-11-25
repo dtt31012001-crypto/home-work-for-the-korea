@@ -1,6 +1,6 @@
 # 05 · Database Overview – TH – Tiếng Hàn
 
-> Trạng thái: mức khái niệm/logic, cập nhật 2026-11-25 (multi-tenant đã duyệt; rút gọn khái niệm theo yêu cầu UX). Cột **Mức** khi có: P0/P1/P2. Schema vật lý (Prisma, migration) chỉ viết sau khi được phê duyệt. PostgreSQL 16+.
+> Trạng thái: mức khái niệm/logic, cập nhật 2026-11-25 (multi-tenant đã duyệt; rút gọn khái niệm theo yêu cầu UX). Cột **Mức** khi có: P0/P1/P2. Schema vật lý Phase 1 đã triển khai – xem §17. PostgreSQL 16+.
 
 ---
 
@@ -267,3 +267,21 @@ Tài chính tách theo dòng: học phí trung tâm · khóa online · thuê bao
 | Staging import, file mồ côi | 7–30 ngày |
 | Audit log | Dài hạn (vd. ≥ 2 năm) |
 | Yêu cầu xóa của người dùng | Ẩn danh hóa thông tin định danh; giữ số liệu tổng hợp |
+
+---
+
+## 17. Schema vật lý đã triển khai (Phase 1)
+
+Nguồn sự thật: `apps/api/prisma/schema.prisma` và `apps/api/prisma/migrations/`. Khác biệt so với mô hình logic ở trên:
+
+| Bảng | Ghi chú triển khai |
+|---|---|
+| `app_user`, `user_identity`, `password_credential`, `session`, `role_assignment`, `audit_log` | Cấp nền tảng (không RLS). `session` lưu chuỗi phiên (`family_started_at`, `family_expires_at`, `policy`); `audit_log` chỉ INSERT (trigger) |
+| `organization`, `branch`, `room` | `branch`, `room` có RLS; khóa ngoại kép `(organization_id, id)` |
+| `curriculum_series`, `curriculum_level`, `curriculum_edition`, `lesson` | Dữ liệu dùng chung; mã hệ/cấp độ là dữ liệu seed |
+| `organization_curriculum` | Giáo trình được cấp cho trung tâm (RLS) |
+| `guardian_link` | Liên kết PH–HV theo trung tâm; trạng thái `PENDING_CONSENT`, `ACTIVE`, `REJECTED`, `REVOKED`; "tạm dừng khi HV tròn 18" được tính từ ngày sinh + thời điểm đồng ý, không lưu trạng thái riêng (RLS) |
+| `class`, `class_teacher`, `schedule_rule`, `class_session`, `session_change`, `enrollment` | RLS; exclusion constraint chống trùng phòng/GV trên `class_session` |
+| `attendance`, `attendance_event`, `session_log`, `session_lesson`, `student_comment`, `attendance_change_request` | RLS. `session_lesson` thay cho mảng `lessons_taught`; `student_comment.visible_to_family` (boolean) thay cho cột `visibility` 3 mức; `attendance_event` chỉ INSERT |
+
+Chưa có bảng mới cho C-07 (nhập chạy đồng bộ, tối đa 500 dòng, không lưu file) và CA-07 (tính từ `attendance`).
