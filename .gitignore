@@ -9,7 +9,10 @@ coverage/
 *.pem
 *.key
 *.p12
-*.sql
+# Bản sao lưu database (KHÔNG chặn *.sql chung: migration Prisma là file .sql cần commit)
+*.sql.gz
+*.backup.sql
+db-dumps/
 *.dump
 uploads/
 storage/
