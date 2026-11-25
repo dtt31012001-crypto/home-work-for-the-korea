@@ -1,6 +1,6 @@
 # 07 · Quyết định – đã duyệt, còn lại, kỹ thuật đã chốt
 
-> Cập nhật: 2026-11-25 sau buổi review FIRST TASK.
+> Cập nhật: 2026-11-25 – D-B17 đã duyệt và triển khai; D-T12 dùng repo `home-work-for-the-korea`.
 > Nguyên tắc: chủ sản phẩm chỉ quyết định những gì ảnh hưởng đáng kể đến **nghiệp vụ, chi phí, pháp lý hoặc khả năng mở rộng**. Chi tiết kỹ thuật thuần túy do nhóm kỹ thuật chốt theo tiêu chí *đơn giản, ổn định, dễ bảo trì, chi phí hợp lý, mở rộng được* (§3) — chủ sản phẩm có quyền phủ quyết.
 > Cách phản hồi: `D-xx: Đồng ý` / `D-xx: Chọn …` / `D-xx: Khác – …`.
 
@@ -10,6 +10,7 @@
 
 | Mã | Nội dung |
 |---|---|
+| **D-B17** | Đăng nhập SĐT/email + mật khẩu; trung tâm cấp **mật khẩu tạm** (hiển thị một lần, hết hạn 7 ngày, bắt buộc đổi lần đầu); OTP/Google để sau. **Đã triển khai** (nhánh `feat/d-b17-auth`) |
 | D-B15 | PH: tài khoản, liên kết PH–HV, xem lịch và điểm danh ở Phase 1; xem tình trạng làm bài ngay khi Phase 2 có giao bài |
 | (kiến trúc) | Learning Progress là module độc lập, không phụ thuộc AI |
 | (kiến trúc) | Multi-tenant + Modular Monolith; không microservices giai đoạn đầu |
@@ -29,7 +30,6 @@ Cột **Trước code**: *Có* = phải chốt trước khi viết code Phase 0/
 
 | Mã | Vấn đề | Phương án | Đề xuất | Lý do | Ảnh hưởng nghiệp vụ | Chi phí / rủi ro | Trước code |
 |---|---|---|---|---|---|---|---|
-| **D-B17** | Cách đăng nhập và cấp tài khoản trong MVP | (a) SĐT/email + mật khẩu; trung tâm cấp **mật khẩu tạm**, bắt buộc đổi lần đầu · (b) (a) + OTP SMS/Zalo · (c) (a) + Google | **(a)** | Không phát sinh phí tin nhắn; phù hợp tài khoản do trung tâm tạo; kiến trúc sẵn sàng thêm OTP/Google | Trung tâm phải gửi mật khẩu tạm cho HV/PH (trực tiếp/Zalo cá nhân); quên mật khẩu không có email → nhờ trung tâm đặt lại | (b): phí mỗi tin SMS/ZNS + thủ tục đăng ký brandname/OA. (a): rủi ro mật khẩu tạm bị lộ → giảm bằng hết hạn sau 7 ngày và bắt buộc đổi | **Có** |
 | **D-B21** | Quy tắc liên kết phụ huynh – học viên | (a) Center Admin tạo liên kết; HV **≥ 18 tuổi phải đồng ý** trong app; HV < 18 do Center Admin xác nhận người giám hộ · (b) Center Admin tạo, không cần HV đồng ý · (c) PH tự yêu cầu bằng mã mời | **(a)**; (c) để sau | Master Prompt yêu cầu HV trưởng thành phải đồng ý; trung tâm là nơi đã xác minh PH ngoài đời | Cần **ngày sinh HV** để biết ≥ 18; HV trưởng thành có thể từ chối | (b) rủi ro pháp lý về dữ liệu cá nhân người trưởng thành; (c) thêm luồng xác minh | **Có** |
 | **D-B19** | Giá trị mặc định Phase 1 | Cửa sổ GV sửa điểm danh: 24h / **48h** / 7 ngày · Ngưỡng "chậm tiến độ": **≥ 1 bài** / ≥ 2 bài | 48h; ≥ 1 bài; cấu hình được theo trung tâm | Đủ thời gian cho GV sửa nhầm, vẫn giữ kỷ luật dữ liệu | Quyết định khi nào CA phải can thiệp sửa điểm danh; độ nhạy cảnh báo | Thấp – đổi được bằng cấu hình | **Có** (chỉ cần chấp thuận mặc định) |
 | **D-B03** | Mã chương trình TH01–TH06, KIIP00–KIIP05-A/B | Dùng mã đề xuất · Đổi mã | **Dùng mã đề xuất** | Ngắn, dễ đọc; lưu trong dữ liệu nên đổi được không cần sửa code | Hiển thị trên lớp, báo cáo, file import | Thấp | **Có** (dữ liệu khởi tạo) |
