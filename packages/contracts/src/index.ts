@@ -7,3 +7,4 @@ export * from "./people";
 export * from "./classes";
 export * from "./attendance";
 export * from "./learner";
+export * from "./platform";

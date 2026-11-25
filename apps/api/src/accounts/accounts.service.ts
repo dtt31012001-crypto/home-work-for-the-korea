@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma, type Role } from "@prisma/client";
-import { IssueAccountInput, IssueAccountResponse, PersonRow, UpdateProfileInput, normalizeEmail, normalizePhone } from "@th/contracts";
+import { ImportAccountsInput, ImportResult, ImportResultRow, IssueAccountInput, IssueAccountResponse, PersonRow, UpdateProfileInput, normalizeEmail, normalizePhone } from "@th/contracts";
 import { AUTH_POLICY } from "../config";
 import { AppException, forbidden, notFound } from "../common/app-exception";
 import { AuditService } from "../audit/audit.service";
@@ -167,6 +167,34 @@ export class AccountsService {
   /** Cấp lại mật khẩu tạm; mọi phiên đang đăng nhập của tài khoản bị thu hồi ngay. */
   async resetPassword(actorId: string, organizationId: string, userId: string, meta: ClientMeta): Promise<IssueAccountResponse> {
     await this.access.assertControlsUser(actorId, organizationId, userId);
+    return this.applyReset(actorId, organizationId, userId, meta);
+  }
+
+  async setLocked(actorId: string, organizationId: string, userId: string, locked: boolean, meta: ClientMeta) {
+    if (actorId === userId) throw forbidden("Không thể tự khóa tài khoản của mình.");
+    await this.access.assertControlsUser(actorId, organizationId, userId);
+    return this.applyLock(actorId, organizationId, userId, locked, meta);
+  }
+
+  /** SA-03: Super Admin thao tác ở cấp nền tảng (kể cả người không thuộc trung tâm nào). */
+  async platformResetPassword(actorId: string, userId: string, meta: ClientMeta) {
+    await this.assertPlatformTarget(actorId, userId);
+    return this.applyReset(actorId, null, userId, meta);
+  }
+
+  async platformSetLocked(actorId: string, userId: string, locked: boolean, meta: ClientMeta) {
+    if (actorId === userId) throw forbidden("Không thể tự khóa tài khoản của mình.");
+    await this.assertPlatformTarget(actorId, userId);
+    return this.applyLock(actorId, null, userId, locked, meta);
+  }
+
+  private async assertPlatformTarget(actorId: string, userId: string) {
+    if (!(await this.access.isSuperAdmin(actorId))) throw notFound();
+    const exists = await this.prisma.user.count({ where: { id: userId } });
+    if (!exists) throw notFound();
+  }
+
+  private async applyReset(actorId: string, organizationId: string | null, userId: string, meta: ClientMeta): Promise<IssueAccountResponse> {
     const temporaryPassword = this.passwords.generateTemporary();
     const hash = await this.passwords.hash(temporaryPassword);
     const expiresAt = tempExpiry();
@@ -187,9 +215,7 @@ export class AccountsService {
     return { userId, linkedExisting: true, temporaryPassword, temporaryPasswordExpiresAt: expiresAt.toISOString() };
   }
 
-  async setLocked(actorId: string, organizationId: string, userId: string, locked: boolean, meta: ClientMeta) {
-    if (actorId === userId) throw forbidden("Không thể tự khóa tài khoản của mình.");
-    await this.access.assertControlsUser(actorId, organizationId, userId);
+  private async applyLock(actorId: string, organizationId: string | null, userId: string, locked: boolean, meta: ClientMeta) {
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
@@ -205,6 +231,103 @@ export class AccountsService {
       );
     });
     return { ok: true };
+  }
+
+  /**
+   * C-07: nhập danh sách học viên/giáo viên. Mỗi dòng đi qua đúng quy tắc của cấp tài khoản lẻ
+   * (không tạo trùng; SĐT/email đã có → gắn thêm vai trò). Chạy thử trước (dryRun) để xem lỗi.
+   * Khi chạy thật, dòng lỗi được bỏ qua, các dòng hợp lệ vẫn được tạo.
+   */
+  async importAccounts(actorId: string, organizationId: string, input: ImportAccountsInput, meta: ClientMeta): Promise<ImportResult> {
+    await this.access.assertCanManageOrganization(actorId, organizationId);
+    const rows: ImportResultRow[] = [];
+    const seen = new Map<string, number>();
+    let expiresAt: string | null = null;
+    const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { maxStudents: true, maxTeachers: true } });
+    const limit = input.role === "STUDENT" ? org.maxStudents : org.maxTeachers;
+    let current = await this.prisma.roleAssignment.count({ where: { organizationId, role: input.role, revokedAt: null } });
+
+    for (const [i, raw] of input.rows.entries()) {
+      const line = i + 2;
+      const phone = raw.phone ? normalizePhone(raw.phone) : null;
+      const email = raw.email ? normalizeEmail(raw.email) : null;
+      const identifier = [raw.phone, raw.email].filter(Boolean).join(" / ");
+      const base = { line, displayName: raw.displayName, identifier };
+      const err = (message: string) => rows.push({ ...base, outcome: "ERROR", message });
+      if (!raw.displayName) {
+        err("Thiếu họ tên");
+        continue;
+      }
+      if (!raw.phone && !raw.email) {
+        err("Cần số điện thoại hoặc email");
+        continue;
+      }
+      if (raw.phone && !phone) {
+        err("Số điện thoại không hợp lệ");
+        continue;
+      }
+      if (raw.email && !email) {
+        err("Email không hợp lệ");
+        continue;
+      }
+      if (raw.dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(raw.dateOfBirth)) {
+        err("Ngày sinh phải theo dạng NNNN-TT-NN (vd. 2010-05-31)");
+        continue;
+      }
+      const keys = [phone && `p:${phone}`, email && `e:${email}`].filter((k): k is string => Boolean(k));
+      const dup = keys.map((k) => seen.get(k)).find((x) => x !== undefined);
+      if (dup !== undefined) {
+        err(`Trùng với dòng ${dup} trong file`);
+        continue;
+      }
+      keys.forEach((k) => seen.set(k, line));
+
+      const existing = await this.prisma.userIdentity.findMany({
+        where: { OR: [phone ? { type: "PHONE" as const, value: phone } : undefined, email ? { type: "EMAIL" as const, value: email } : undefined].filter((x): x is NonNullable<typeof x> => Boolean(x)) },
+        select: { userId: true },
+      });
+      const ids = [...new Set(existing.map((e) => e.userId))];
+      if (ids.length > 1) {
+        err("Số điện thoại và email thuộc hai tài khoản khác nhau");
+        continue;
+      }
+      if (ids.length === 1) {
+        const has = await this.prisma.roleAssignment.count({ where: { userId: ids[0], organizationId, role: input.role, revokedAt: null } });
+        if (has) {
+          rows.push({ ...base, outcome: "ALREADY_HAS_ROLE", message: "Đã có trong trung tâm – bỏ qua" });
+          continue;
+        }
+      }
+      if (limit != null && current >= limit) {
+        err(`Vượt giới hạn ${limit} tài khoản của gói hiện tại`);
+        continue;
+      }
+      current++;
+      const outcome = ids.length === 1 ? "LINK_EXISTING" : "CREATE";
+      if (input.dryRun) {
+        rows.push({ ...base, outcome, message: outcome === "LINK_EXISTING" ? "Đã có tài khoản – sẽ gắn thêm vai trò, không cấp mật khẩu mới" : null });
+        continue;
+      }
+      try {
+        const r = await this.issueInternal(
+          actorId,
+          organizationId,
+          { displayName: raw.displayName, phone: raw.phone || undefined, email: raw.email || undefined, role: input.role, dateOfBirth: raw.dateOfBirth || undefined },
+          meta,
+        );
+        if (r.temporaryPasswordExpiresAt) expiresAt = r.temporaryPasswordExpiresAt;
+        rows.push({ ...base, outcome, message: outcome === "LINK_EXISTING" ? "Đã gắn thêm vai trò vào tài khoản sẵn có" : null, temporaryPassword: r.temporaryPassword });
+      } catch (e) {
+        current--;
+        rows.push({ ...base, outcome: "ERROR", message: e instanceof AppException ? (e.getResponse() as { error: { message: string } }).error.message : "Không tạo được" });
+      }
+    }
+    const summary = { CREATE: 0, LINK_EXISTING: 0, ALREADY_HAS_ROLE: 0, ERROR: 0 };
+    for (const r of rows) summary[r.outcome]++;
+    if (!input.dryRun) {
+      await this.audit.record({ action: "account.imported", resourceType: "organization", resourceId: organizationId, actorUserId: actorId, organizationId, data: { role: input.role, ...summary }, ip: meta.ip, requestId: meta.requestId });
+    }
+    return { dryRun: input.dryRun, rows, summary, temporaryPasswordExpiresAt: expiresAt };
   }
 
   /** Sửa họ tên / ngày sinh. Người thuộc nhiều trung tâm → chỉ quản trị nền tảng sửa (dữ liệu dùng chung). */

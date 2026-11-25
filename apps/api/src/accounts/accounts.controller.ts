@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, ParseEnumPipe, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
-import { IssueAccountInput, UpdateProfileInput, issueAccountSchema, updateProfileSchema } from "@th/contracts";
+import { ImportAccountsInput, IssueAccountInput, UpdateProfileInput, importAccountsSchema, issueAccountSchema, updateProfileSchema } from "@th/contracts";
 import { Role } from "@prisma/client";
 import { clientMeta } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -56,6 +56,18 @@ export class AccountsController {
     @Req() req: Request,
   ) {
     return this.accounts.issue(auth.userId, orgId, body, clientMeta(req));
+  }
+
+  /** C-07: nhập danh sách; dryRun=true chỉ kiểm tra. */
+  @Post("import")
+  @HttpCode(200)
+  import(
+    @CurrentAuth() auth: AuthContext,
+    @Param("orgId", uuid) orgId: string,
+    @Body(new ZodValidationPipe(importAccountsSchema)) body: ImportAccountsInput,
+    @Req() req: Request,
+  ) {
+    return this.accounts.importAccounts(auth.userId, orgId, body, clientMeta(req));
   }
 
   @Post(":userId/reset-password")
