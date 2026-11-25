@@ -1,4 +1,4 @@
-import { BookOpen, Building2, GraduationCap, Settings, Users, type LucideIcon } from "lucide-react";
+import { BookOpen, Building2, CalendarDays, GraduationCap, School, Settings, Users, type LucideIcon } from "lucide-react";
 
 export interface NavDef {
   href: string;
@@ -15,6 +15,8 @@ export const SUPER_ADMIN_NAV: NavDef[] = [
 ];
 
 export const CENTER_ADMIN_NAV: NavDef[] = [
+  { href: "/trung-tam/lop", label: "Lớp học", icon: School },
+  { href: "/trung-tam/lich", label: "Lịch học", icon: CalendarDays },
   { href: "/trung-tam/hoc-vien", label: "Học viên", icon: GraduationCap },
   { href: "/trung-tam/giao-vien", label: "Giáo viên", icon: Users },
   { href: "/trung-tam/cai-dat", label: "Cài đặt", icon: Settings },

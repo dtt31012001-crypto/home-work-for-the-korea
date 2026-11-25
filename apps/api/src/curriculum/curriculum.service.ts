@@ -258,4 +258,11 @@ export class CurriculumService {
       await this.audit.record({ action: "curriculum.grant_revoked", resourceType: "organization_curriculum", resourceId: grantId, actorUserId: actor.userId, organizationId }, tx);
     });
   }
+
+  /** Danh sách bài của phiên bản trung tâm được cấp (cho form tạo lớp, giáo viên chọn bài đã dạy). */
+  async grantedLessons(actor: Actor, organizationId: string, editionId: string) {
+    const granted = await this.db.run(actor.dbScope(), (tx) => tx.organizationCurriculum.count({ where: { organizationId, editionId, revokedAt: null } }));
+    if (!granted) throw notFound();
+    return this.prisma.lesson.findMany({ where: { editionId, status: "ACTIVE" }, orderBy: { number: "asc" }, select: { id: true, number: true, titleVi: true, titleKo: true } });
+  }
 }

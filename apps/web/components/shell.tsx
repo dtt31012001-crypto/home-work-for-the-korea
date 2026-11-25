@@ -27,7 +27,7 @@ function contextLabel(c: Context) {
   return `${ROLE_LABEL[c.role]} · ${c.organization?.name ?? "Nền tảng"}`;
 }
 
-function ContextSwitcher({ current }: { current: Context }) {
+function ContextSwitcher({ current, overflow = [] }: { current: Context; overflow?: NavItem[] }) {
   const { me, select } = useSession();
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -63,6 +63,11 @@ function ContextSwitcher({ current }: { current: Context }) {
               {contextLabel(c)}
             </button>
           ))}
+          {overflow.map((item) => (
+            <Link key={item.href} role="menuitem" href={item.href} onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-canvas lg:hidden">
+              <item.icon className="size-4" aria-hidden /> {item.label}
+            </Link>
+          ))}
           <Link role="menuitem" href="/tai-khoan" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-canvas">
             <UserRound className="size-4" aria-hidden /> Tài khoản
           </Link>
@@ -85,6 +90,7 @@ export function WorkspaceShell({ role, nav, children }: { role: Role; nav: NavIt
   const current = activeFor(role);
   if (!current) return null;
   const mobileNav = nav.slice(0, 5);
+  const overflow = nav.slice(5);
 
   return (
     <div className="min-h-dvh lg:flex">
@@ -118,7 +124,7 @@ export function WorkspaceShell({ role, nav, children }: { role: Role; nav: NavIt
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-surface/95 px-4 py-2 backdrop-blur lg:hidden">
           <p className="truncate font-semibold text-brand-800">{current.organization?.name ?? "TH – Tiếng Hàn"}</p>
           <div className="w-48">
-            <ContextSwitcher current={current} />
+            <ContextSwitcher current={current} overflow={overflow} />
           </div>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-24 lg:px-8 lg:pt-8 lg:pb-10">{children}</main>

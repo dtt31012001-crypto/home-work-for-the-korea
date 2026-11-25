@@ -362,3 +362,151 @@ model GuardianLink {
   @@index([guardianUserId])
   @@map("guardian_link")
 }
+
+// ---------------------------------------------------------------------------
+// Lớp học, ghi danh, lịch học (RLS theo organization_id)
+// ---------------------------------------------------------------------------
+
+enum ClassStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+model CourseClass {
+  id                String      @id @default(uuid(7)) @db.Uuid
+  organizationId    String      @map("organization_id") @db.Uuid
+  branchId          String      @map("branch_id") @db.Uuid
+  editionId         String      @map("edition_id") @db.Uuid
+  name              String
+  startDate         DateTime    @map("start_date") @db.Date
+  plannedSessions   Int         @map("planned_sessions")
+  /// Bài bắt đầu (số bài trong phiên bản) và số buổi cho mỗi bài – để gợi ý bài dự kiến từng buổi
+  startLessonNumber Int         @map("start_lesson_number")
+  sessionsPerLesson Int         @default(1) @map("sessions_per_lesson")
+  defaultRoomId     String?     @map("default_room_id") @db.Uuid
+  /// Học phí tham chiếu (VND). Không kế toán/thu tiền ở Phase 1 (D-B10)
+  tuitionAmount     Int?        @map("tuition_amount")
+  status            ClassStatus @default(OPEN)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById       String?     @map("created_by") @db.Uuid
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name])
+  @@map("class")
+}
+
+model ClassTeacher {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  teacherUserId  String    @map("teacher_user_id") @db.Uuid
+  validFrom      DateTime  @map("valid_from") @db.Date
+  /// NULL = đang phụ trách
+  validTo        DateTime? @map("valid_to") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId, teacherUserId])
+  @@index([classId])
+  @@map("class_teacher")
+}
+
+model ScheduleRule {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  /// ISO: 1 = Thứ 2 … 7 = Chủ nhật
+  weekday        Int
+  /// Giờ địa phương của cơ sở, HH:MM
+  startTime      String    @map("start_time")
+  endTime        String    @map("end_time")
+  validFrom      DateTime  @map("valid_from") @db.Date
+  validTo        DateTime? @map("valid_to") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([classId])
+  @@map("schedule_rule")
+}
+
+enum SessionKind {
+  REGULAR
+  MAKEUP
+  EXTRA
+  EXAM
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model ClassSession {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  classId         String        @map("class_id") @db.Uuid
+  /// Số thứ tự buổi chính khóa (1..planned_sessions); NULL với buổi bù/thêm/kiểm tra
+  number          Int?
+  kind            SessionKind   @default(REGULAR)
+  startsAt        DateTime      @map("starts_at") @db.Timestamptz(6)
+  endsAt          DateTime      @map("ends_at") @db.Timestamptz(6)
+  roomId          String?       @map("room_id") @db.Uuid
+  teacherUserId   String?       @map("teacher_user_id") @db.Uuid
+  plannedLessonId String?       @map("planned_lesson_id") @db.Uuid
+  status          SessionStatus @default(SCHEDULED)
+  cancelReason    String?       @map("cancel_reason")
+  makeupForId     String?       @map("makeup_for_id") @db.Uuid
+  version         Int           @default(0)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, startsAt])
+  @@index([classId, startsAt])
+  @@index([teacherUserId, startsAt])
+  @@map("class_session")
+}
+
+/// Lịch sử thay đổi buổi học (chỉ thêm)
+model SessionChange {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  changeType     String   @map("change_type")
+  before         Json?
+  after          Json?
+  reason         String?
+  byUserId       String   @map("by_user_id") @db.Uuid
+  at             DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([sessionId])
+  @@map("session_change")
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  ON_HOLD
+  TRANSFERRED
+  WITHDRAWN
+  COMPLETED
+}
+
+model Enrollment {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  classId         String           @map("class_id") @db.Uuid
+  studentUserId   String           @map("student_user_id") @db.Uuid
+  status          EnrollmentStatus @default(ACTIVE)
+  startDate       DateTime         @map("start_date") @db.Date
+  endDate         DateTime?        @map("end_date") @db.Date
+  holdFrom        DateTime?        @map("hold_from") @db.Date
+  holdUntil       DateTime?        @map("hold_until") @db.Date
+  transferredToId String?          @map("transferred_to_id") @db.Uuid
+  note            String?
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([organizationId, studentUserId])
+  @@index([classId])
+  @@map("enrollment")
+}

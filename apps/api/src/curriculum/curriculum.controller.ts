@@ -101,6 +101,11 @@ export class OrganizationCurriculumController {
     return this.curriculum.granted(await this.access.actor(a.userId), orgId);
   }
 
+  @Get(":editionId/lessons")
+  async lessons(@CurrentAuth() a: AuthContext, @Param("orgId", uuid) orgId: string, @Param("editionId", uuid) editionId: string) {
+    return this.curriculum.grantedLessons(await this.access.actor(a.userId), orgId, editionId);
+  }
+
   @Post()
   @UseGuards(SuperAdminGuard)
   async grant(@CurrentAuth() a: AuthContext, @Param("orgId", uuid) orgId: string, @Body(new ZodValidationPipe(grantSchema)) b: { editionId: string }) {
