@@ -38,3 +38,13 @@ test("chính sách mật khẩu", () => {
   assert.equal(checkPassword("xin0912345678", "+84912345678"), "CONTAINS_PHONE");
   assert.equal(checkPassword("bien-xanh-mua-thu"), null);
 });
+
+import { parseLessonLines } from "./curriculum";
+
+test("đọc danh sách bài nhập nhiều dòng", () => {
+  const r = parseLessonLines("1 | Chào hỏi | 인사\n2\tGia đình\n\nx | Lỗi\n3 |");
+  assert.deepEqual(r[0], { line: 1, value: { number: 1, titleVi: "Chào hỏi", titleKo: "인사" } });
+  assert.deepEqual(r[1], { line: 2, value: { number: 2, titleVi: "Gia đình", titleKo: null } });
+  assert.equal(r[2]!.error, "Số bài không hợp lệ");
+  assert.equal(r[3]!.error, "Thiếu tên bài");
+});

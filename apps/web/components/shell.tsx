@@ -14,9 +14,12 @@ export interface NavItem {
   icon: LucideIcon;
   /** Trang chủ của workspace: chỉ sáng khi đúng đường dẫn */
   exact?: boolean;
+  /** Các đường dẫn con khác cũng thuộc mục này */
+  also?: string[];
 }
 
 function isActive(pathname: string, item: NavItem) {
+  if (item.also?.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
   return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + "/");
 }
 

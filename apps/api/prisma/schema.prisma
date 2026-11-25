@@ -42,25 +42,26 @@ enum OrganizationStatus {
 }
 
 model Organization {
-  id                     String             @id @default(uuid(7)) @db.Uuid
-  code                   String             @unique
-  name                   String
-  status                 OrganizationStatus @default(ACTIVE)
-  contactPhone           String?            @map("contact_phone")
-  contactEmail           String?            @map("contact_email")
-  address                String?
+  id                      String                   @id @default(uuid(7)) @db.Uuid
+  code                    String                   @unique
+  name                    String
+  status                  OrganizationStatus       @default(ACTIVE)
+  contactPhone            String?                  @map("contact_phone")
+  contactEmail            String?                  @map("contact_email")
+  address                 String?
   /// Giới hạn tài khoản do Super Admin cấp (D-B10). NULL = không giới hạn
-  maxStudents            Int?               @map("max_students")
-  maxTeachers            Int?               @map("max_teachers")
+  maxStudents             Int?                     @map("max_students")
+  maxTeachers             Int?                     @map("max_teachers")
   /// D-B19: số giờ giáo viên được sửa điểm danh sau buổi học
-  attendanceEditHours    Int                @default(48) @map("attendance_edit_hours")
+  attendanceEditHours     Int                      @default(48) @map("attendance_edit_hours")
   /// D-B19: lớp chậm từ N bài trở lên thì cảnh báo
-  behindThresholdLessons Int                @default(1) @map("behind_threshold_lessons")
-  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdById            String?            @map("created_by") @db.Uuid
-  updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  roleAssignments        RoleAssignment[]
-  branches               Branch[]
+  behindThresholdLessons  Int                      @default(1) @map("behind_threshold_lessons")
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById             String?                  @map("created_by") @db.Uuid
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roleAssignments         RoleAssignment[]
+  branches                Branch[]
+  organizationCurriculums OrganizationCurriculum[]
 
   @@map("organization")
 }
@@ -210,4 +211,119 @@ model AuditLog {
   @@index([organizationId, at])
   @@index([actorUserId, at])
   @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// Giáo trình (dữ liệu dùng chung của nền tảng – không thuộc trung tâm).
+// Chỉ lưu CẤU TRÚC (mã, tên cấp độ, phiên bản, danh sách bài do chủ sản phẩm nhập).
+// ---------------------------------------------------------------------------
+
+enum LevelStructure {
+  /// Theo kỹ năng ngôn ngữ
+  LANGUAGE
+  /// Theo chủ đề kiến thức xã hội (KIIP cấp 5)
+  SOCIETY
+}
+
+enum EditionStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum LicenseStatus {
+  /// Chưa xác nhận quyền sử dụng – chỉ lưu khung, không số hóa nội dung
+  UNCONFIRMED
+  /// Đã có văn bản cho phép
+  CONFIRMED
+  /// Nội dung do trung tâm/nền tảng tự biên soạn
+  OWN_CONTENT
+}
+
+enum DistributionChannel {
+  CLASS_INTERNAL
+  B2C
+  MARKETPLACE
+}
+
+model CurriculumSeries {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  code      String            @unique
+  nameVi    String            @map("name_vi")
+  nameKo    String?           @map("name_ko")
+  sortOrder Int               @default(0) @map("sort_order")
+  status    RecordStatus      @default(ACTIVE)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  levels    CurriculumLevel[]
+
+  @@map("curriculum_series")
+}
+
+model CurriculumLevel {
+  id        String              @id @default(uuid(7)) @db.Uuid
+  seriesId  String              @map("series_id") @db.Uuid
+  /// Mã chương trình (D-B03), vd. TH01, KIIP05-B
+  code      String              @unique
+  nameVi    String              @map("name_vi")
+  nameKo    String?             @map("name_ko")
+  structure LevelStructure      @default(LANGUAGE)
+  sortOrder Int                 @default(0) @map("sort_order")
+  status    RecordStatus        @default(ACTIVE)
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  series    CurriculumSeries    @relation(fields: [seriesId], references: [id])
+  editions  CurriculumEdition[]
+
+  @@map("curriculum_level")
+}
+
+model CurriculumEdition {
+  id                String                   @id @default(uuid(7)) @db.Uuid
+  levelId           String                   @map("level_id") @db.Uuid
+  /// Tên phiên bản giáo trình, vd. "Bản 2024"
+  name              String
+  publishYear       Int?                     @map("publish_year")
+  publisher         String?
+  rightsHolder      String?                  @map("rights_holder")
+  licenseStatus     LicenseStatus            @default(UNCONFIRMED) @map("license_status")
+  allowedChannels   DistributionChannel[]    @default([]) @map("allowed_channels")
+  licenseValidUntil DateTime?                @map("license_valid_until") @db.Date
+  licenseNote       String?                  @map("license_note")
+  status            EditionStatus            @default(DRAFT)
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById       String?                  @map("created_by") @db.Uuid
+  level             CurriculumLevel          @relation(fields: [levelId], references: [id])
+  lessons           Lesson[]
+  grants            OrganizationCurriculum[]
+
+  @@unique([levelId, name])
+  @@map("curriculum_edition")
+}
+
+model Lesson {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  editionId String            @map("edition_id") @db.Uuid
+  number    Int
+  titleVi   String            @map("title_vi")
+  titleKo   String?           @map("title_ko")
+  status    RecordStatus      @default(ACTIVE)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  edition   CurriculumEdition @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId, number])
+  @@map("lesson")
+}
+
+/// Giáo trình được cấp cho trung tâm (RLS theo organization_id)
+model OrganizationCurriculum {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  editionId      String            @map("edition_id") @db.Uuid
+  grantedById    String?           @map("granted_by") @db.Uuid
+  grantedAt      DateTime          @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedAt      DateTime?         @map("revoked_at") @db.Timestamptz(6)
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  edition        CurriculumEdition @relation(fields: [editionId], references: [id])
+
+  @@index([organizationId])
+  @@map("organization_curriculum")
 }

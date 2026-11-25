@@ -1,6 +1,6 @@
 "use client";
 
-import { ROLE_LABEL, type OrganizationDetail } from "@th/contracts";
+import { EDITION_STATUS_LABEL, ROLE_LABEL, type CurriculumTree, type GrantedEdition, type OrganizationDetail } from "@th/contracts";
 import { ArrowLeft, KeyRound, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -33,7 +33,7 @@ interface AccountRow {
   mustChangePassword: boolean;
 }
 
-type Tab = "info" | "admins" | "branches";
+type Tab = "info" | "admins" | "curricula" | "branches";
 
 export default function CenterDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,11 +55,13 @@ export default function CenterDetailPage() {
         tabs={[
           { value: "info", label: "Thông tin & giới hạn" },
           { value: "admins", label: "Quản trị trung tâm" },
+          { value: "curricula", label: "Giáo trình được cấp" },
           { value: "branches", label: "Cơ sở" },
         ]}
       />
       {tab === "info" && <InfoTab org={data} onSaved={reload} />}
       {tab === "admins" && <AdminsTab orgId={data.id} />}
+      {tab === "curricula" && <GrantsTab orgId={data.id} />}
       {tab === "branches" && (
         <Section>
           {data.branches.length === 0 ? (
@@ -192,6 +194,68 @@ function AdminsTab({ orgId }: { orgId: string }) {
       <Dialog open={Boolean(reset)} title={`Mật khẩu tạm mới – ${reset?.name ?? ""}`} onClose={() => setReset(undefined)} footer={<PrimaryButton onClick={() => setReset(undefined)}>Xong</PrimaryButton>}>
         {reset && <TemporaryPasswordNotice password={reset.password} expiresAt={reset.expiresAt} />}
       </Dialog>
+    </Section>
+  );
+}
+
+function GrantsTab({ orgId }: { orgId: string }) {
+  const grants = useResource<GrantedEdition[]>(`/api/organizations/${orgId}/curricula`);
+  const tree = useResource<CurriculumTree>("/api/admin/curricula");
+  const [editionId, setEditionId] = useState("");
+  const [error, setError] = useState<string>();
+  const granted = new Set(grants.data?.map((g) => g.edition.id));
+  const options =
+    tree.data?.series.flatMap((s) =>
+      s.levels.flatMap((l) =>
+        l.editions.filter((e) => e.status !== "ARCHIVED" && !granted.has(e.id)).map((e) => ({ value: e.id, label: `${l.code} – ${l.nameVi} · ${e.name}` })),
+      ),
+    ) ?? [];
+
+  async function grant() {
+    setError(undefined);
+    try {
+      await api("POST", `/api/organizations/${orgId}/curricula`, { editionId });
+      setEditionId("");
+      grants.reload();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Đã có lỗi xảy ra.");
+    }
+  }
+
+  async function revoke(g: GrantedEdition) {
+    if (!confirm(`Thu hồi ${g.level.code} · ${g.edition.name}? Lớp đang học không bị gián đoạn, nhưng không tạo được lớp mới với phiên bản này.`)) return;
+    await api("POST", `/api/organizations/${orgId}/curricula/${g.grantId}/revoke`);
+    grants.reload();
+  }
+
+  return (
+    <Section title="Giáo trình được cấp">
+      {error && <ErrorBox message={error} />}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <SelectField label="Cấp thêm phiên bản" value={editionId} onChange={(e) => setEditionId(e.target.value)} options={options} placeholder="Chọn phiên bản giáo trình" />
+        </div>
+        <PrimaryButton onClick={grant} disabled={!editionId}>
+          Cấp
+        </PrimaryButton>
+      </div>
+      {grants.data && grants.data.length === 0 && <EmptyState title="Chưa cấp giáo trình" hint="Trung tâm chỉ tạo được lớp với phiên bản giáo trình được cấp." />}
+      <ul className="divide-y divide-line">
+        {grants.data?.map((g) => (
+          <li key={g.grantId} className="flex flex-wrap items-center gap-3 py-3">
+            <span className="w-20 font-mono text-sm font-semibold text-brand-800">{g.level.code}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">
+                {g.level.nameVi} · {g.edition.name}
+              </p>
+              <p className="text-xs text-muted">
+                {g.series.nameVi} · {g.edition.lessonCount} bài · {EDITION_STATUS_LABEL[g.edition.status]}
+              </p>
+            </div>
+            <SecondaryButton onClick={() => revoke(g)}>Thu hồi</SecondaryButton>
+          </li>
+        ))}
+      </ul>
     </Section>
   );
 }

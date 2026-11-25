@@ -38,7 +38,6 @@ export class AdminOrganizationsController {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly orgs: OrganizationsService,
-    private readonly access: AccessService,
   ) {}
 
   @Get()

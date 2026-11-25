@@ -7,6 +7,7 @@ import { AuthGuard } from "./auth/auth.guard";
 import { AuthModule } from "./auth/auth.module";
 import { Public } from "./auth/decorators";
 import { CsrfGuard } from "./common/csrf.guard";
+import { CurriculumModule } from "./curriculum/curriculum.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PrismaService } from "./prisma/prisma.service";
@@ -31,6 +32,7 @@ class HealthController {
     AuthModule,
     AccountsModule,
     OrganizationsModule,
+    CurriculumModule,
   ],
   controllers: [HealthController],
   providers: [
