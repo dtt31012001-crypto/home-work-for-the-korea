@@ -64,3 +64,35 @@ Lặp lại diễn tập **mỗi tháng** và trước mỗi lần nâng cấp l
 |---|---|---|
 | `th-api` | ~2 GB trên đĩa | Dùng `node:22-bookworm` (có sẵn OpenSSL cho Prisma). Có thể tối ưu sau |
 | `th-web` | ~460 MB | Next.js standalone |
+
+## 6. Staging trên Render + Neon (dữ liệu thử)
+
+> Chỉ dùng cho **staging với dữ liệu thử**. Neon và Render đặt máy chủ tại Singapore, không phải Việt Nam như D-T04 → **không đưa dữ liệu học viên thật** lên môi trường này khi chưa có quyết định riêng (Nghị định 13/2023 về chuyển dữ liệu cá nhân ra nước ngoài).
+
+Kiến trúc: **một** dịch vụ Render (`render.yaml`, ảnh `deploy/render/Dockerfile`) chạy cả Web (cổng `$PORT`) và API (`127.0.0.1:4000`, không mở ra ngoài) + database Neon. Mỗi lần khởi động, `deploy/render/start.mjs`:
+
+1. chạy migration bằng role chủ;
+2. tạo/cập nhật role `th_app` bằng SQL và **dừng triển khai nếu role này có quyền vượt RLS** (superuser, BYPASSRLS, CREATEROLE, hoặc là thành viên role khác như `neon_superuser`);
+3. tạo Quản trị nền tảng đầu tiên nếu có `BOOTSTRAP_SUPER_ADMIN_EMAIL`;
+4. chạy API bằng role `th_app` (tiến trình API không nhận chuỗi kết nối của role chủ).
+
+### Bước 1 – Neon
+1. Tạo project `th-staging`, region **AWS Asia Pacific (Singapore)**, PostgreSQL 16 hoặc 17.
+2. *Connect* → tắt **Connection pooling** → chép chuỗi kết nối của role `neondb_owner` (dạng `postgresql://neondb_owner:…@ep-….ap-southeast-1.aws.neon.tech/neondb?sslmode=require`).
+3. **Không** tạo role `th_app` trên giao diện Neon (role tạo ở đó thuộc `neon_superuser`); hệ thống tự tạo bằng SQL.
+
+### Bước 2 – Render
+1. Dashboard → **New → Blueprint** → chọn repo `home-work-for-the-korea`, nhánh `main` → Render đọc `render.yaml`.
+2. Nhập biến khi được hỏi:
+   - `MIGRATION_DATABASE_URL`: chuỗi kết nối ở Bước 1.2;
+   - `BOOTSTRAP_SUPER_ADMIN_EMAIL`, `BOOTSTRAP_SUPER_ADMIN_NAME`: email và tên Quản trị nền tảng đầu tiên.
+   - `APP_DB_PASSWORD`, `JWT_SECRET` được Render tự sinh.
+3. **Apply**. Lần build đầu mất khoảng 10 phút.
+4. Mở **Logs**, tìm dòng `Mật khẩu tạm (chỉ hiển thị một lần)` → đăng nhập tại `https://th-staging.onrender.com` (tên miền thật xem ở đầu trang dịch vụ) và đổi mật khẩu.
+5. Sau khi đăng nhập được: xóa hai biến `BOOTSTRAP_SUPER_ADMIN_*` (không bắt buộc – các lần khởi động sau không in lại mật khẩu).
+
+### Lưu ý gói miễn phí
+- Dịch vụ "ngủ" sau 15 phút không có truy cập; lần mở đầu tiên chờ khoảng 1 phút.
+- Neon gói miễn phí có giới hạn dung lượng và thời gian chạy; database tự "ngủ" khi không dùng.
+- Sao lưu: Neon có khôi phục theo thời điểm trong thời hạn của gói; **chưa** có sao lưu độc lập cho môi trường này – chấp nhận được vì chỉ có dữ liệu thử.
+- Nâng gói trả phí cần chủ sản phẩm duyệt.

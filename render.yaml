@@ -1,0 +1,32 @@
+# Render Blueprint – môi trường STAGING (chỉ dữ liệu thử). Database: Neon (PostgreSQL, Singapore).
+# Hướng dẫn: docs/operations.md §6. Không ghi chuỗi kết nối/mật khẩu vào file này.
+services:
+  - type: web
+    name: th-staging
+    runtime: docker
+    dockerfilePath: ./deploy/render/Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: free
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      # Chuỗi kết nối Neon của role chủ (neondb_owner), KHÔNG dùng pooler. Nhập khi tạo Blueprint.
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+      # Mật khẩu role ứng dụng th_app – Render tự sinh, không cần nhập.
+      - key: APP_DB_PASSWORD
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      # Biên Render → Next.js → API
+      - key: TRUST_PROXY
+        value: "2"
+      # Email Quản trị nền tảng đầu tiên. Mật khẩu tạm in MỘT LẦN trong Logs ở lần khởi động đầu.
+      - key: BOOTSTRAP_SUPER_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_SUPER_ADMIN_NAME
+        sync: false
