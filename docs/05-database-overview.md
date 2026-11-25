@@ -54,7 +54,7 @@ flowchart LR
 | `user_identity` | id, user_id, type (`PHONE`, `EMAIL`, `USERNAME`, `GOOGLE`), value, normalized_value, verified_at | **UNIQUE (type, normalized_value)** → chống trùng tài khoản |
 | `password_credential` | user_id, hash (Argon2id), must_change, changed_at | 1–1 với user |
 | `session` | id, user_id, refresh_hash, device, ip, expires_at, revoked_at | |
-| `role` | id, code (`SUPER_ADMIN`, `CENTER_ADMIN`, `TEACHER`, `STUDENT`; sau MVP: `CONTENT_CREATOR`) | Danh mục. Phụ huynh không phải role gán tay – suy ra từ `guardian_link`. Quyền "kiểm duyệt học liệu trung tâm" là một permission gán thêm, không phải vai trò mới |
+| `role` | id, code (`SUPER_ADMIN`, `CENTER_ADMIN`, `TEACHER`, `STUDENT`, `PARENT`; sau MVP: `CONTENT_CREATOR`) | Danh mục. `PARENT` được gán theo trung tâm khi trung tâm tạo tài khoản phụ huynh (để đếm, quản lý tài khoản, cách ly dữ liệu); quyền **xem dữ liệu con** vẫn chỉ đến từ `guardian_link` còn hiệu lực. Quyền "kiểm duyệt học liệu trung tâm" là một permission gán thêm, không phải vai trò mới |
 | `permission`, `role_permission` | code (`class.write`, `homework.grade`, …) | |
 | `role_assignment` | id, user_id, role_id, organization_id?, branch_id?, valid_from, valid_to, status | **UNIQUE (user_id, role_id, organization_id, branch_id)** khi đang hiệu lực |
 | `guardian_link` | id, guardian_user_id, student_user_id, relationship, status (`PENDING`, `ACTIVE`, `REJECTED`, `REVOKED`), verified_by, consent_by, consent_at, revoked_by, revoked_at, reason | UNIQUE (guardian, student) khi ACTIVE; mọi thay đổi ghi `guardian_link_event` |

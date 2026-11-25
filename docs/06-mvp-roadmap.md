@@ -201,9 +201,9 @@ flowchart TD
 | R1-02 | Một học viên có thể học nhiều lớp (vd. TH02 và KIIP01); tiến độ tách theo lớp | Theo thiết kế |
 | R1-03 | Không cho tạo buổi trùng phòng hoặc trùng giáo viên (cảnh báo và chặn) | Theo thiết kế |
 | R1-04 | Giờ học lưu theo múi giờ của cơ sở | Theo thiết kế |
-| R1-05 | GV sửa điểm danh trong **48 giờ** sau buổi; sau đó chỉ Center Admin sửa, có lý do | Mặc định chờ duyệt (D-B19) |
-| R1-06 | Lớp "chậm tiến độ" khi bài đã dạy chậm hơn bài dự kiến **≥ 1 bài** | Mặc định chờ duyệt (D-B19) |
-| R1-07 | Liên kết PH–HV do Center Admin tạo; HV **từ đủ 18 tuổi** phải đồng ý trong app; HV dưới 18 tuổi: Center Admin xác nhận người giám hộ | Chờ duyệt (D-B21) |
+| R1-05 | GV sửa điểm danh trong **48 giờ** sau buổi (cấu hình được); sau đó GV gửi yêu cầu sửa, **Center Admin duyệt**; CA sửa trực tiếp phải ghi lý do; mọi thay đổi lưu lịch sử | Đã duyệt (D-B19) |
+| R1-06 | Lớp "chậm tiến độ" khi bài đã dạy chậm hơn bài dự kiến **≥ 1 bài** (cấu hình được theo trung tâm) | Đã duyệt (D-B19) |
+| R1-07 | Liên kết PH–HV do Center Admin tạo và xác thực; HV **từ đủ 18 tuổi** phải đồng ý trong app; HV dưới 18 tuổi: CA xác minh người giám hộ (ghi cách xác minh); HV tròn 18 → liên kết tạm dừng tới khi HV đồng ý; thu hồi có hiệu lực ngay | Đã duyệt (D-B21) |
 | R1-08 | Phụ huynh chỉ xem học viên có liên kết đang hiệu lực; không sửa được gì | Theo thiết kế |
 | R1-09 | Không tạo trùng tài khoản: SĐT/email đã tồn tại → gắn vai trò mới vào tài khoản sẵn có (vd. phụ huynh đồng thời là học viên) | Theo thiết kế |
 | R1-10 | Không xóa cứng lớp, ghi danh, buổi học, điểm danh có dữ liệu; dùng trạng thái | Theo thiết kế |
