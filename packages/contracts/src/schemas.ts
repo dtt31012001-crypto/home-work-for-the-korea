@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { PASSWORD_MAX_LENGTH } from "./password";
 
-export const ROLES = ["SUPER_ADMIN", "CENTER_ADMIN", "TEACHER", "STUDENT"] as const;
+export const ROLES = ["SUPER_ADMIN", "CENTER_ADMIN", "TEACHER", "STUDENT", "PARENT"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -9,6 +9,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   CENTER_ADMIN: "Quản trị trung tâm",
   TEACHER: "Giáo viên",
   STUDENT: "Học viên",
+  PARENT: "Phụ huynh",
 };
 
 export const loginSchema = z.object({

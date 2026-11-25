@@ -7,7 +7,10 @@ import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/bootstrap-app";
 import { PasswordService } from "../src/auth/password.service";
 
-export const prisma = new PrismaClient();
+import { TEST_OWNER_URL } from "./env";
+
+/** Client role CHỦ: chỉ để tạo/xóa dữ liệu thử (bỏ qua RLS). Ứng dụng dùng role th_app. */
+export const prisma = new PrismaClient({ datasources: { db: { url: TEST_OWNER_URL } } });
 const passwords = new PasswordService();
 
 export async function createApp(): Promise<INestApplication> {

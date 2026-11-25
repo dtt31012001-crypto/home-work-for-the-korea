@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, Req, Res } from "@nestjs/common"
 import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { ChangePasswordInput, LoginInput, changePasswordSchema, loginSchema } from "@th/contracts";
+import { AppException } from "../common/app-exception";
 import { clientMeta } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { AuthService } from "./auth.service";
@@ -44,7 +45,8 @@ export class AuthController {
       setAuthCookies(res, tokens);
       return { ok: true };
     } catch (e) {
-      clearAuthCookies(res);
+      // Không xóa cookie khi tab khác vừa làm mới: cookie hiện tại đã là cookie mới
+      if (!(e instanceof AppException && e.code === "SESSION_ROTATED")) clearAuthCookies(res);
       throw e;
     }
   }

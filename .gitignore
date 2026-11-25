@@ -19,3 +19,8 @@ storage/
 *.tsbuildinfo
 playwright-report/
 test-results/
+
+# Biến môi trường triển khai thật và bản sao lưu
+deploy/.env.*
+!deploy/.env.example
+deploy/backups/

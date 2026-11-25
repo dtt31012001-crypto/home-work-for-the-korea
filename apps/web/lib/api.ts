@@ -30,7 +30,8 @@ let refreshing: Promise<boolean> | undefined;
 /** Làm mới phiên một lần cho mọi request đang chờ (tránh nhiều tab/request cùng xoay token). */
 function refreshSession(): Promise<boolean> {
   refreshing ??= raw("POST", "/api/auth/refresh")
-    .then((r) => r.ok)
+    // 409 SESSION_ROTATED: tab khác vừa làm mới, cookie mới đã có → coi như thành công
+    .then((r) => r.ok || r.status === 409)
     .catch(() => false)
     .finally(() => setTimeout(() => (refreshing = undefined), 0));
   return refreshing;

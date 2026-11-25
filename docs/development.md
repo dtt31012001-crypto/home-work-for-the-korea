@@ -17,10 +17,10 @@ docs/               Tài liệu sản phẩm
 
 ```bash
 pnpm install
-docker compose up -d postgres
-cp .env.example apps/api/.env      # sửa JWT_SECRET
+docker compose up -d postgres        # tự tạo role chủ th và role ứng dụng th_app
+cp .env.example apps/api/.env        # sửa JWT_SECRET
 pnpm --filter @th/contracts build
-pnpm --filter @th/api db:migrate
+scripts/setup-dev-db.sh              # migrate bằng role chủ, cấp quyền role ứng dụng
 pnpm --filter @th/api bootstrap:super-admin --name "Tên" --email ban@example.com
 pnpm dev:api                       # cửa sổ 1
 pnpm dev:web                       # cửa sổ 2 → http://localhost:3000/dang-nhap
@@ -34,8 +34,14 @@ Lệnh `bootstrap:super-admin` in **mật khẩu tạm một lần** trên termi
 pnpm lint && pnpm typecheck && pnpm test
 ```
 
-Test API chạy trên database **`th_test`** riêng (tự chạy migration; từ chối chạy nếu tên DB không chứa `th_test`).
-Đổi đường dẫn bằng biến `TEST_DATABASE_URL`.
+Test API chạy trên database **`th_test`** riêng (tự migrate và cấp quyền; từ chối chạy nếu tên DB khác `th_test`).
+Ứng dụng trong test kết nối bằng role `th_app` (RLS áp dụng); role chủ chỉ dùng để tạo dữ liệu thử.
+Biến: `TEST_DATABASE_URL` (role ứng dụng), `TEST_MIGRATION_DATABASE_URL` (role chủ).
+
+## Hai role database
+- **Chủ sở hữu** (`MIGRATION_DATABASE_URL`): chỉ chạy migration.
+- **Ứng dụng** (`DATABASE_URL`): không phải chủ bảng, không có BYPASSRLS → PostgreSQL Row-Level Security luôn lọc dữ liệu theo trung tâm.
+  Không được đọc/sửa `_prisma_migrations`, không được sửa/xóa `audit_log`.
 
 ## API hiện có (lát cắt D-B17)
 

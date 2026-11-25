@@ -50,6 +50,9 @@ importers:
       jsonwebtoken:
         specifier: 9.0.2
         version: 9.0.2
+      prisma:
+        specifier: 6.19.3
+        version: 6.19.3(typescript@5.9.3)
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -87,9 +90,6 @@ importers:
       jest:
         specifier: 29.7.0
         version: 29.7.0(@types/node@22.20.5)
-      prisma:
-        specifier: 6.19.3
-        version: 6.19.3(typescript@5.9.3)
       supertest:
         specifier: 7.3.2
         version: 7.3.2

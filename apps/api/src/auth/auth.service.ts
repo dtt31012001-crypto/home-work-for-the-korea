@@ -32,6 +32,8 @@ const tooManyAttempts = () =>
     `Bạn đã nhập sai nhiều lần. Vui lòng thử lại sau ${AUTH_POLICY.lockoutMinutes} phút.`,
   );
 const sessionExpired = () => new AppException(HttpStatus.UNAUTHORIZED, "SESSION_EXPIRED", "Phiên đăng nhập đã hết hạn.");
+/** Tab/request khác vừa làm mới phiên trước: không phải tấn công, trình duyệt đã có cookie mới → chỉ cần gọi lại. */
+const sessionRotated = () => new AppException(HttpStatus.CONFLICT, "SESSION_ROTATED", "Phiên vừa được làm mới. Vui lòng thử lại.");
 
 /** Khoảng thời gian coi việc dùng lại refresh token vừa xoay là do 2 tab gọi đồng thời, không phải bị đánh cắp. */
 const ROTATION_GRACE_MS = 30_000;
@@ -99,6 +101,7 @@ export class AuthService {
     const tokens = await this.prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: now } });
       const issued = await this.tokens.createSession(tx, user, credential.mustChange, meta);
+      if (!issued) throw sessionExpired();
       await this.audit.record(
         { action: "auth.login.succeeded", resourceType: "user", resourceId: user.id, actorUserId: user.id, ip: meta.ip, requestId: meta.requestId },
         tx,
@@ -133,18 +136,24 @@ export class AuthService {
           requestId: meta.requestId,
         });
       }
+      if (withinGrace) throw sessionRotated();
       throw sessionExpired();
     }
     if (session.expiresAt <= now || session.user.status !== "ACTIVE") throw sessionExpired();
 
     return this.prisma.$transaction(async (tx) => {
       const mustChange = session.user.credential?.mustChange ?? false;
-      const issued = await this.tokens.createSession(tx, session.user, mustChange, meta, session.familyId);
+      const issued = await this.tokens.createSession(tx, session.user, mustChange, meta, {
+        id: session.familyId,
+        startedAt: session.familyStartedAt,
+        expiresAt: session.familyExpiresAt,
+      });
+      if (!issued) throw sessionExpired();
       const { count } = await tx.session.updateMany({
         where: { id: session.id, revokedAt: null },
         data: { revokedAt: now, revokedReason: "ROTATED", replacedById: issued.sessionId },
       });
-      if (count === 0) throw sessionExpired(); // request song song đã xoay trước; transaction bị hủy
+      if (count === 0) throw sessionRotated(); // request song song đã xoay trước; transaction bị hủy
       return issued;
     });
   }
@@ -191,6 +200,7 @@ export class AuthService {
         data: { revokedAt: now, revokedReason: "PASSWORD_CHANGED" },
       });
       const issued = await this.tokens.createSession(tx, updated, false, meta);
+      if (!issued) throw sessionExpired();
       await this.audit.record(
         {
           action: user.credential!.mustChange ? "auth.password.temporary_replaced" : "auth.password.changed",

@@ -32,8 +32,11 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U th" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      TEST_DATABASE_URL: postgresql://th:th_ci_only@localhost:5432/th_test
-      DATABASE_URL: postgresql://th:th_ci_only@localhost:5432/th_test
+      # Chủ sở hữu (superuser trong container CI) chỉ để migrate/tạo dữ liệu thử;
+      # ứng dụng chạy bằng role th_app không có quyền vượt RLS.
+      TEST_MIGRATION_DATABASE_URL: postgresql://th:th_ci_only@localhost:5432/th_test
+      TEST_DATABASE_URL: postgresql://th_app:th_app_ci_only@localhost:5432/th_test
+      DATABASE_URL: postgresql://th_app:th_app_ci_only@localhost:5432/th_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

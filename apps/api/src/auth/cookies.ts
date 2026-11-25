@@ -15,7 +15,7 @@ export function setAuthCookies(res: Response, tokens: IssuedTokens) {
   res.cookie(REFRESH_COOKIE, tokens.refreshToken, {
     ...base(),
     path: REFRESH_PATH,
-    maxAge: AUTH_POLICY.refreshTokenTtlDays * 86_400_000,
+    maxAge: Math.max(0, tokens.refreshExpiresAt.getTime() - Date.now()),
   });
 }
 
