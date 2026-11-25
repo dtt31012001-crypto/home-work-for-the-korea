@@ -42,15 +42,67 @@ enum OrganizationStatus {
 }
 
 model Organization {
-  id              String             @id @default(uuid(7)) @db.Uuid
-  code            String             @unique
-  name            String
-  status          OrganizationStatus @default(ACTIVE)
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdById     String?            @map("created_by") @db.Uuid
-  roleAssignments RoleAssignment[]
+  id                     String             @id @default(uuid(7)) @db.Uuid
+  code                   String             @unique
+  name                   String
+  status                 OrganizationStatus @default(ACTIVE)
+  contactPhone           String?            @map("contact_phone")
+  contactEmail           String?            @map("contact_email")
+  address                String?
+  /// Giới hạn tài khoản do Super Admin cấp (D-B10). NULL = không giới hạn
+  maxStudents            Int?               @map("max_students")
+  maxTeachers            Int?               @map("max_teachers")
+  /// D-B19: số giờ giáo viên được sửa điểm danh sau buổi học
+  attendanceEditHours    Int                @default(48) @map("attendance_edit_hours")
+  /// D-B19: lớp chậm từ N bài trở lên thì cảnh báo
+  behindThresholdLessons Int                @default(1) @map("behind_threshold_lessons")
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById            String?            @map("created_by") @db.Uuid
+  updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roleAssignments        RoleAssignment[]
+  branches               Branch[]
 
   @@map("organization")
+}
+
+enum RecordStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Cơ sở của trung tâm (RLS theo organization_id)
+model Branch {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String
+  address        String?
+  /// Múi giờ IANA, vd. Asia/Ho_Chi_Minh, Asia/Seoul
+  timezone       String       @default("Asia/Ho_Chi_Minh")
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  rooms          Room[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name])
+  @@map("branch")
+}
+
+/// Phòng học (RLS theo organization_id)
+model Room {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  branchId       String       @map("branch_id") @db.Uuid
+  name           String
+  capacity       Int?
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Khóa ngoại kép: phòng không thể thuộc cơ sở của trung tâm khác
+  branch         Branch       @relation(fields: [organizationId, branchId], references: [organizationId, id])
+
+  @@unique([organizationId, id])
+  @@unique([branchId, name])
+  @@map("room")
 }
 
 model User {

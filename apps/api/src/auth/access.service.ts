@@ -1,9 +1,51 @@
-import { Injectable } from "@nestjs/common";
+import { HttpStatus, Injectable } from "@nestjs/common";
 import type { Role } from "@prisma/client";
-import { forbidden, notFound } from "../common/app-exception";
+import { AppException, forbidden, notFound } from "../common/app-exception";
 import { PrismaService } from "../prisma/prisma.service";
+import type { DbScope } from "../prisma/tenant-db.service";
 
-/** Chính sách quyền tập trung cho Identity & Access (RBAC theo phạm vi trung tâm). */
+export interface Assignment {
+  role: Role;
+  organizationId: string | null;
+}
+
+/**
+ * Người đang thao tác: toàn bộ vai trò còn hiệu lực ở các trung tâm đang hoạt động.
+ * Một người có thể có nhiều vai trò ở nhiều trung tâm; mọi kiểm tra quyền dựa trên tài nguyên cụ thể,
+ * không dựa vào "vai trò đang chọn" trên giao diện.
+ */
+export class Actor {
+  constructor(
+    readonly userId: string,
+    readonly assignments: Assignment[],
+  ) {}
+
+  get superAdmin(): boolean {
+    return this.assignments.some((a) => a.role === "SUPER_ADMIN");
+  }
+
+  organizationIds(...roles: Role[]): string[] {
+    const ids = this.assignments
+      .filter((a) => a.organizationId && (roles.length === 0 || roles.includes(a.role)))
+      .map((a) => a.organizationId as string);
+    return [...new Set(ids)];
+  }
+
+  hasRole(organizationId: string, ...roles: Role[]): boolean {
+    return this.assignments.some((a) => a.organizationId === organizationId && roles.includes(a.role));
+  }
+
+  canManage(organizationId: string): boolean {
+    return this.superAdmin || this.hasRole(organizationId, "CENTER_ADMIN");
+  }
+
+  /** Phạm vi Row-Level Security cho mọi truy vấn bảng dữ liệu trung tâm. */
+  dbScope(): DbScope {
+    return this.superAdmin ? { all: true } : { all: false, organizationIds: this.organizationIds() };
+  }
+}
+
+/** Chính sách quyền tập trung (RBAC theo phạm vi trung tâm). */
 @Injectable()
 export class AccessService {
   constructor(private readonly prisma: PrismaService) {}
@@ -21,23 +63,28 @@ export class AccessService {
     });
   }
 
-  async isSuperAdmin(userId: string): Promise<boolean> {
-    const n = await this.prisma.roleAssignment.count({ where: { userId, role: "SUPER_ADMIN", revokedAt: null } });
-    return n > 0;
+  async actor(userId: string): Promise<Actor> {
+    const rows = await this.activeAssignments(userId);
+    return new Actor(
+      userId,
+      rows.map((r) => ({ role: r.role, organizationId: r.organizationId })),
+    );
   }
 
-  /** Người thao tác phải là Super Admin hoặc Center Admin của chính trung tâm đó. Sai → 404 (không lộ trung tâm tồn tại). */
-  async assertCanManageOrganization(actorId: string, organizationId: string): Promise<{ superAdmin: boolean }> {
-    if (await this.isSuperAdmin(actorId)) {
+  async isSuperAdmin(userId: string): Promise<boolean> {
+    return (await this.actor(userId)).superAdmin;
+  }
+
+  /** Super Admin hoặc Center Admin của chính trung tâm đó. Sai → 404 (không lộ trung tâm tồn tại). */
+  async assertCanManageOrganization(actorId: string, organizationId: string): Promise<{ superAdmin: boolean; actor: Actor }> {
+    const actor = await this.actor(actorId);
+    if (actor.superAdmin) {
       const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } });
       if (!org) throw notFound();
-      return { superAdmin: true };
+      return { superAdmin: true, actor };
     }
-    const n = await this.prisma.roleAssignment.count({
-      where: { userId: actorId, role: "CENTER_ADMIN", organizationId, revokedAt: null, organization: { status: "ACTIVE" } },
-    });
-    if (n === 0) throw notFound();
-    return { superAdmin: false };
+    if (!actor.hasRole(organizationId, "CENTER_ADMIN")) throw notFound();
+    return { superAdmin: false, actor };
   }
 
   /**
@@ -60,6 +107,25 @@ export class AccessService {
     }
     if (assignments.some((a) => a.organizationId !== organizationId)) {
       throw forbidden("Tài khoản này thuộc nhiều trung tâm. Vui lòng liên hệ quản trị nền tảng.");
+    }
+  }
+
+  /** D-B10: vượt giới hạn tài khoản → chặn tạo mới, không ảnh hưởng người đang dùng. */
+  async assertWithinLimit(organizationId: string, role: Role) {
+    if (role !== "STUDENT" && role !== "TEACHER") return;
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { maxStudents: true, maxTeachers: true },
+    });
+    const max = role === "STUDENT" ? org.maxStudents : org.maxTeachers;
+    if (max === null) return;
+    const used = await this.prisma.roleAssignment.count({ where: { organizationId, role, revokedAt: null } });
+    if (used >= max) {
+      throw new AppException(
+        HttpStatus.CONFLICT,
+        "ACCOUNT_LIMIT_REACHED",
+        `Trung tâm đã dùng hết ${max} tài khoản ${role === "STUDENT" ? "học viên" : "giáo viên"} được cấp. Vui lòng liên hệ quản trị nền tảng.`,
+      );
     }
   }
 }

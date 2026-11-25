@@ -53,6 +53,7 @@ export class AccountsService {
     if (input.role === "CENTER_ADMIN" && !superAdmin) {
       throw forbidden("Chỉ quản trị nền tảng được cấp tài khoản quản trị trung tâm.");
     }
+    await this.access.assertWithinLimit(organizationId, input.role);
 
     const phone = input.phone ? normalizePhone(input.phone) : null;
     const email = input.email ? normalizeEmail(input.email) : null;

@@ -69,6 +69,11 @@ export default function AccountPage() {
             )}
           </Card>
 
+          {me.contexts.length > 0 && (
+            <Link href="/vao" className="flex h-12 items-center justify-center rounded-lg bg-brand-700 font-semibold text-white hover:bg-brand-800">
+              Vào làm việc
+            </Link>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Link
               href="/mat-khau?next=/tai-khoan"
