@@ -5,6 +5,7 @@ import { z } from "zod";
 import { clientMeta } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { AccessService } from "../auth/access.service";
+import { RequireRole } from "../auth/workspace-role.guard";
 import { AuthContext, CurrentAuth } from "../auth/decorators";
 import { OrganizationAdminGuard } from "../auth/organization-admin.guard";
 import { AttendanceService } from "./attendance.service";
@@ -14,6 +15,7 @@ const dayQuery = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).option
 
 /** Workspace giáo viên (T-01, T-02, T-03): chỉ buổi/lớp giáo viên đang phụ trách, ở mọi trung tâm. */
 @Controller("teaching")
+@RequireRole("TEACHER")
 export class TeachingController {
   constructor(
     private readonly attendance: AttendanceService,

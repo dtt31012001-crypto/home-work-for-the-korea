@@ -199,7 +199,7 @@ describe("Quyền giáo viên thay đổi", () => {
 
     await ca.post(`/api/organizations/${org.id}/accounts/${t2u.id}/roles/TEACHER/revoke`);
     expect((await t2.get(`/api/teaching/sessions/${tomorrow.id}`)).status).toBe(404);
-    expect((await t2.get("/api/teaching/today")).body.sessions).toEqual([]);
+    expect((await t2.get("/api/teaching/today")).status).toBe(404); // không còn vai trò giáo viên ở đâu
     expect(t1u.id).not.toBe(t2u.id);
   });
 });

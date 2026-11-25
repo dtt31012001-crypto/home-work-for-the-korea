@@ -58,6 +58,15 @@ export class Client {
     return this.agent.post(path).set("x-forwarded-for", this.ip).set("x-csrf-token", t).send(body ?? {});
   }
 
+  async send(method: "post" | "put" | "patch" | "delete", path: string, body?: object) {
+    const t = await this.token();
+    return this.agent[method](path).set("x-forwarded-for", this.ip).set("x-csrf-token", t).send(body ?? {});
+  }
+
+  patch(path: string, body?: object) {
+    return this.send("patch", path, body);
+  }
+
   login(identifier: string, password: string) {
     return this.post("/api/auth/login", { identifier, password });
   }

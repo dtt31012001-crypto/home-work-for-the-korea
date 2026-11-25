@@ -2,6 +2,7 @@ import { Controller, Get, Param, ParseUUIDPipe, Query } from "@nestjs/common";
 import { z } from "zod";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { AccessService } from "../auth/access.service";
+import { RequireRole } from "../auth/workspace-role.guard";
 import { AuthContext, CurrentAuth } from "../auth/decorators";
 import { GuardiansService } from "../people/guardians.service";
 import { LearnerService } from "./learner.service";
@@ -13,6 +14,7 @@ const range = z
 
 /** HV-01/02: học viên xem dữ liệu của chính mình. */
 @Controller("learning")
+@RequireRole("STUDENT")
 export class LearningController {
   constructor(
     private readonly learner: LearnerService,
@@ -32,6 +34,7 @@ export class LearningController {
 
 /** PH-01/02: phụ huynh xem dữ liệu con có liên kết hiệu lực. */
 @Controller("family")
+@RequireRole("PARENT")
 export class FamilyController {
   constructor(
     private readonly learner: LearnerService,
