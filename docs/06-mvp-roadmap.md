@@ -201,9 +201,9 @@ flowchart TD
 | R1-02 | Một học viên có thể học nhiều lớp (vd. TH02 và KIIP01); tiến độ tách theo lớp | Theo thiết kế |
 | R1-03 | Không cho tạo buổi trùng phòng hoặc trùng giáo viên (cảnh báo và chặn) | Theo thiết kế |
 | R1-04 | Giờ học lưu theo múi giờ của cơ sở | Theo thiết kế |
-| R1-05 | GV sửa điểm danh trong **48 giờ** sau buổi; sau đó chỉ Center Admin sửa, có lý do | Mặc định chờ duyệt (D-B19) |
-| R1-06 | Lớp "chậm tiến độ" khi bài đã dạy chậm hơn bài dự kiến **≥ 1 bài** | Mặc định chờ duyệt (D-B19) |
-| R1-07 | Liên kết PH–HV do Center Admin tạo; HV **từ đủ 18 tuổi** phải đồng ý trong app; HV dưới 18 tuổi: Center Admin xác nhận người giám hộ | Chờ duyệt (D-B21) |
+| R1-05 | GV sửa điểm danh trong **48 giờ** sau buổi (cấu hình được); sau đó GV gửi yêu cầu sửa, **Center Admin duyệt**; CA sửa trực tiếp phải ghi lý do; mọi thay đổi lưu lịch sử | Đã duyệt (D-B19) |
+| R1-06 | Lớp "chậm tiến độ" khi bài đã dạy chậm hơn bài dự kiến **≥ 1 bài** (cấu hình được theo trung tâm) | Đã duyệt (D-B19) |
+| R1-07 | Liên kết PH–HV do Center Admin tạo và xác thực; HV **từ đủ 18 tuổi** phải đồng ý trong app; HV dưới 18 tuổi: CA xác minh người giám hộ (ghi cách xác minh); HV tròn 18 → liên kết tạm dừng tới khi HV đồng ý; thu hồi có hiệu lực ngay | Đã duyệt (D-B21) |
 | R1-08 | Phụ huynh chỉ xem học viên có liên kết đang hiệu lực; không sửa được gì | Theo thiết kế |
 | R1-09 | Không tạo trùng tài khoản: SĐT/email đã tồn tại → gắn vai trò mới vào tài khoản sẵn có (vd. phụ huynh đồng thời là học viên) | Theo thiết kế |
 | R1-10 | Không xóa cứng lớp, ghi danh, buổi học, điểm danh có dữ liệu; dùng trạng thái | Theo thiết kế |
@@ -246,6 +246,36 @@ flowchart TD
 - CI xanh: lint, typecheck, unit, integration, E2E kịch bản A.
 - Backup DB tự động và **diễn tập khôi phục** thành công trên staging.
 - Tài liệu: hướng dẫn chạy dev, triển khai staging, hướng dẫn sử dụng ngắn cho CA/GV/PH.
+
+### 4.6 Trạng thái triển khai Phase 1 (cập nhật 2026-11-25)
+
+Nhánh `feat/d-b17-auth`. Mỗi module: kiểm thử API với PostgreSQL thật (role ứng dụng chịu RLS) + chạy giao diện thật bằng trình duyệt (Playwright, ảnh chụp màn hình), lint, typecheck, CI.
+
+| Module | Màn hình | Trạng thái | Bằng chứng |
+|---|---|---|---|
+| 1. Foundation | – | ✅ | Docker Compose staging/prod, RLS + 2 role DB, backup/restore đã diễn tập (xem `operations.md`) |
+| 2. Auth/Authz (D-B17) | C-01, C-02, C-03 | ✅ | `auth`, `session-policy` spec: mật khẩu tạm 7 ngày, khóa sau 5 lần sai, chính sách phiên theo vai trò, refresh đồng thời |
+| 3. Organization | SA-01, CA-08 | ✅ | `organization` spec (gồm kiểm thử RLS ở tầng DB) |
+| 4. Curriculum | SA-02 | ✅ | `curriculum` spec; mã TH01–06, KIIP00–05 là dữ liệu, không có nội dung bài |
+| 5. Teacher | CA-05 | ✅ | `accounts`, `people` spec |
+| 6. Student & Parent link (D-B21) | CA-04 | ✅ | `people` spec: <18 xác minh, ≥18 đồng ý, tròn 18 tạm dừng, thu hồi ngay |
+| 7. Class & Enrollment | CA-02, CA-03 | ✅ | `classes` spec: ghi danh, bảo lưu, chuyển lớp, nghỉ học |
+| 8. Scheduling | CA-06 | ✅ | `classes` spec + exclusion constraint chặn trùng phòng/GV ở DB |
+| 9. Attendance (D-B19) | T-01, T-02, T-03, CA-01 | ✅ | `attendance` spec: 48 giờ, yêu cầu sửa/duyệt, điểm danh muộn, lịch sử |
+| 10. Student Workspace | HV-01, HV-02 | ✅ | `learner` spec |
+| 11. Parent Workspace | PH-01, PH-02 | ✅ | `learner` spec: chỉ trung tâm có liên kết hiệu lực, nhiều con |
+| P1 | C-07, SA-03, SA-04, CA-07 | ✅ | `platform` spec |
+| Bảo mật tổng hợp | – | ✅ | `security` spec: nhiều vai trò/nhiều trung tâm, đổi vai trò khi đang đăng nhập, quét 39 endpoint truy cập chéo, ma trận vai trò ↔ workspace |
+
+**Chưa làm trong Phase 1 – cần chủ sản phẩm quyết định/cung cấp:**
+
+| Hạng mục | Lý do | Cần gì |
+|---|---|---|
+| C-05: điều khoản sử dụng + chính sách dữ liệu | Nội dung pháp lý phải do chủ sản phẩm/luật sư cung cấp; không tự soạn | Văn bản điều khoản & chính sách dữ liệu cá nhân |
+| Quên mật khẩu qua email | Cần dịch vụ gửi email (có thể trả phí) | Phê duyệt nhà cung cấp email; hiện tại: trung tâm đặt lại mật khẩu tạm |
+| Staging thật + diễn tập khôi phục trên staging | Cần thuê máy chủ VN | Phê duyệt nhà cung cấp/chi phí; đã diễn tập trên môi trường thử cục bộ |
+| E2E kịch bản A trong CI | Các kịch bản giao diện đang chạy cục bộ (Playwright) | Đưa vào CI sau khi chốt staging |
+| C-07 nhận file Excel `.xlsx` | Phase 1 nhận **CSV** (Excel: *Lưu thành → CSV UTF-8*) để không thêm thư viện xử lý file | Xác nhận CSV đủ dùng hoặc yêu cầu `.xlsx` |
 
 ---
 

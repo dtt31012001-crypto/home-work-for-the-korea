@@ -1,6 +1,6 @@
 # 05 · Database Overview – TH – Tiếng Hàn
 
-> Trạng thái: mức khái niệm/logic, cập nhật 2026-11-25 (multi-tenant đã duyệt; rút gọn khái niệm theo yêu cầu UX). Cột **Mức** khi có: P0/P1/P2. Schema vật lý (Prisma, migration) chỉ viết sau khi được phê duyệt. PostgreSQL 16+.
+> Trạng thái: mức khái niệm/logic, cập nhật 2026-11-25 (multi-tenant đã duyệt; rút gọn khái niệm theo yêu cầu UX). Cột **Mức** khi có: P0/P1/P2. Schema vật lý Phase 1 đã triển khai – xem §17. PostgreSQL 16+.
 
 ---
 
@@ -54,7 +54,7 @@ flowchart LR
 | `user_identity` | id, user_id, type (`PHONE`, `EMAIL`, `USERNAME`, `GOOGLE`), value, normalized_value, verified_at | **UNIQUE (type, normalized_value)** → chống trùng tài khoản |
 | `password_credential` | user_id, hash (Argon2id), must_change, changed_at | 1–1 với user |
 | `session` | id, user_id, refresh_hash, device, ip, expires_at, revoked_at | |
-| `role` | id, code (`SUPER_ADMIN`, `CENTER_ADMIN`, `TEACHER`, `STUDENT`; sau MVP: `CONTENT_CREATOR`) | Danh mục. Phụ huynh không phải role gán tay – suy ra từ `guardian_link`. Quyền "kiểm duyệt học liệu trung tâm" là một permission gán thêm, không phải vai trò mới |
+| `role` | id, code (`SUPER_ADMIN`, `CENTER_ADMIN`, `TEACHER`, `STUDENT`, `PARENT`; sau MVP: `CONTENT_CREATOR`) | Danh mục. `PARENT` được gán theo trung tâm khi trung tâm tạo tài khoản phụ huynh (để đếm, quản lý tài khoản, cách ly dữ liệu); quyền **xem dữ liệu con** vẫn chỉ đến từ `guardian_link` còn hiệu lực. Quyền "kiểm duyệt học liệu trung tâm" là một permission gán thêm, không phải vai trò mới |
 | `permission`, `role_permission` | code (`class.write`, `homework.grade`, …) | |
 | `role_assignment` | id, user_id, role_id, organization_id?, branch_id?, valid_from, valid_to, status | **UNIQUE (user_id, role_id, organization_id, branch_id)** khi đang hiệu lực |
 | `guardian_link` | id, guardian_user_id, student_user_id, relationship, status (`PENDING`, `ACTIVE`, `REJECTED`, `REVOKED`), verified_by, consent_by, consent_at, revoked_by, revoked_at, reason | UNIQUE (guardian, student) khi ACTIVE; mọi thay đổi ghi `guardian_link_event` |
@@ -267,3 +267,21 @@ Tài chính tách theo dòng: học phí trung tâm · khóa online · thuê bao
 | Staging import, file mồ côi | 7–30 ngày |
 | Audit log | Dài hạn (vd. ≥ 2 năm) |
 | Yêu cầu xóa của người dùng | Ẩn danh hóa thông tin định danh; giữ số liệu tổng hợp |
+
+---
+
+## 17. Schema vật lý đã triển khai (Phase 1)
+
+Nguồn sự thật: `apps/api/prisma/schema.prisma` và `apps/api/prisma/migrations/`. Khác biệt so với mô hình logic ở trên:
+
+| Bảng | Ghi chú triển khai |
+|---|---|
+| `app_user`, `user_identity`, `password_credential`, `session`, `role_assignment`, `audit_log` | Cấp nền tảng (không RLS). `session` lưu chuỗi phiên (`family_started_at`, `family_expires_at`, `policy`); `audit_log` chỉ INSERT (trigger) |
+| `organization`, `branch`, `room` | `branch`, `room` có RLS; khóa ngoại kép `(organization_id, id)` |
+| `curriculum_series`, `curriculum_level`, `curriculum_edition`, `lesson` | Dữ liệu dùng chung; mã hệ/cấp độ là dữ liệu seed |
+| `organization_curriculum` | Giáo trình được cấp cho trung tâm (RLS) |
+| `guardian_link` | Liên kết PH–HV theo trung tâm; trạng thái `PENDING_CONSENT`, `ACTIVE`, `REJECTED`, `REVOKED`; "tạm dừng khi HV tròn 18" được tính từ ngày sinh + thời điểm đồng ý, không lưu trạng thái riêng (RLS) |
+| `class`, `class_teacher`, `schedule_rule`, `class_session`, `session_change`, `enrollment` | RLS; exclusion constraint chống trùng phòng/GV trên `class_session` |
+| `attendance`, `attendance_event`, `session_log`, `session_lesson`, `student_comment`, `attendance_change_request` | RLS. `session_lesson` thay cho mảng `lessons_taught`; `student_comment.visible_to_family` (boolean) thay cho cột `visibility` 3 mức; `attendance_event` chỉ INSERT |
+
+Chưa có bảng mới cho C-07 (nhập chạy đồng bộ, tối đa 500 dòng, không lưu file) và CA-07 (tính từ `attendance`).

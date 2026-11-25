@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: th
+          POSTGRES_PASSWORD: th_ci_only
+          POSTGRES_DB: th_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U th" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Chủ sở hữu (superuser trong container CI) chỉ để migrate/tạo dữ liệu thử;
+      # ứng dụng chạy bằng role th_app không có quyền vượt RLS.
+      TEST_MIGRATION_DATABASE_URL: postgresql://th:th_ci_only@localhost:5432/th_test
+      TEST_DATABASE_URL: postgresql://th_app:th_app_ci_only@localhost:5432/th_test
+      DATABASE_URL: postgresql://th_app:th_app_ci_only@localhost:5432/th_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @th/contracts build
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter @th/web build

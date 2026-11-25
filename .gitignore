@@ -9,8 +9,21 @@ coverage/
 *.pem
 *.key
 *.p12
-*.sql
+# Bản sao lưu database (KHÔNG chặn *.sql chung: migration Prisma là file .sql cần commit)
+*.sql.gz
+*.backup.sql
+db-dumps/
 *.dump
 uploads/
 storage/
 *.local.*
+# Build outputs & local tooling
+.turbo/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# Biến môi trường triển khai thật và bản sao lưu
+deploy/.env.*
+!deploy/.env.example
+deploy/backups/

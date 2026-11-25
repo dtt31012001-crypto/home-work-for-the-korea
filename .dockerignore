@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.next
+**/.env
+**/.env.*
+!.env.example
+.git
+docs
+horizon-english-platform
+dtt31012001-crypto
+deploy/backups
+**/*.dump
+**/coverage

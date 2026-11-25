@@ -1,0 +1,628 @@
+// TH – Tiếng Hàn · Identity & Access + Organization (lát cắt D-B17)
+// Quy ước: bảng/cột snake_case, thời gian timestamptz (UTC), khóa UUIDv7.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+  DEACTIVATED
+}
+
+enum IdentityType {
+  PHONE
+  EMAIL
+}
+
+enum Role {
+  SUPER_ADMIN
+  CENTER_ADMIN
+  TEACHER
+  STUDENT
+  /// Gán theo trung tâm khi trung tâm tạo tài khoản phụ huynh. Quyền xem dữ liệu con chỉ đến từ guardian_link còn hiệu lực.
+  PARENT
+}
+
+enum SessionPolicy {
+  ADMIN
+  TEACHER
+  LEARNER
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Organization {
+  id                      String                   @id @default(uuid(7)) @db.Uuid
+  code                    String                   @unique
+  name                    String
+  status                  OrganizationStatus       @default(ACTIVE)
+  contactPhone            String?                  @map("contact_phone")
+  contactEmail            String?                  @map("contact_email")
+  address                 String?
+  /// Giới hạn tài khoản do Super Admin cấp (D-B10). NULL = không giới hạn
+  maxStudents             Int?                     @map("max_students")
+  maxTeachers             Int?                     @map("max_teachers")
+  /// D-B19: số giờ giáo viên được sửa điểm danh sau buổi học
+  attendanceEditHours     Int                      @default(48) @map("attendance_edit_hours")
+  /// D-B19: lớp chậm từ N bài trở lên thì cảnh báo
+  behindThresholdLessons  Int                      @default(1) @map("behind_threshold_lessons")
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById             String?                  @map("created_by") @db.Uuid
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roleAssignments         RoleAssignment[]
+  branches                Branch[]
+  organizationCurriculums OrganizationCurriculum[]
+
+  @@map("organization")
+}
+
+enum RecordStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Cơ sở của trung tâm (RLS theo organization_id)
+model Branch {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  name           String
+  address        String?
+  /// Múi giờ IANA, vd. Asia/Ho_Chi_Minh, Asia/Seoul
+  timezone       String       @default("Asia/Ho_Chi_Minh")
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  rooms          Room[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name])
+  @@map("branch")
+}
+
+/// Phòng học (RLS theo organization_id)
+model Room {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  branchId       String       @map("branch_id") @db.Uuid
+  name           String
+  capacity       Int?
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Khóa ngoại kép: phòng không thể thuộc cơ sở của trung tâm khác
+  branch         Branch       @relation(fields: [organizationId, branchId], references: [organizationId, id])
+
+  @@unique([organizationId, id])
+  @@unique([branchId, name])
+  @@map("room")
+}
+
+model User {
+  id               String              @id @default(uuid(7)) @db.Uuid
+  displayName      String              @map("display_name")
+  /// Ngày sinh – dùng để xác định học viên chưa thành niên (D-B21)
+  dateOfBirth      DateTime?           @map("date_of_birth") @db.Date
+  status           UserStatus          @default(ACTIVE)
+  /// Tăng khi khóa tài khoản / đổi hoặc đặt lại mật khẩu → mọi access token cũ mất hiệu lực ngay
+  tokenVersion     Int                 @default(0) @map("token_version")
+  failedLoginCount Int                 @default(0) @map("failed_login_count")
+  lockedUntil      DateTime?           @map("locked_until") @db.Timestamptz(6)
+  lastLoginAt      DateTime?           @map("last_login_at") @db.Timestamptz(6)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  identities       UserIdentity[]
+  credential       PasswordCredential?
+  sessions         Session[]
+  roleAssignments  RoleAssignment[]
+
+  @@map("app_user")
+}
+
+model UserIdentity {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  userId     String       @map("user_id") @db.Uuid
+  type       IdentityType
+  /// Giá trị đã chuẩn hóa: SĐT E.164, email chữ thường
+  value      String
+  verifiedAt DateTime?    @map("verified_at") @db.Timestamptz(6)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User         @relation(fields: [userId], references: [id])
+
+  @@unique([type, value])
+  @@index([userId])
+  @@map("user_identity")
+}
+
+model PasswordCredential {
+  userId        String    @id @map("user_id") @db.Uuid
+  hash          String
+  /// true với mật khẩu tạm do trung tâm cấp: bắt buộc đổi ở lần đăng nhập đầu
+  mustChange    Boolean   @map("must_change")
+  tempExpiresAt DateTime? @map("temp_expires_at") @db.Timestamptz(6)
+  changedAt     DateTime  @default(now()) @map("changed_at") @db.Timestamptz(6)
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@map("password_credential")
+}
+
+model Session {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  /// SHA-256 của refresh token; token gốc chỉ nằm trong cookie httpOnly
+  tokenHash       String        @unique @map("token_hash")
+  /// Chuỗi xoay vòng: phát hiện dùng lại refresh token cũ → thu hồi cả chuỗi
+  familyId        String        @map("family_id") @db.Uuid
+  /// Thời điểm đăng nhập của chuỗi phiên – để tính thời hạn tối đa
+  familyStartedAt DateTime      @default(now()) @map("family_started_at") @db.Timestamptz(6)
+  /// Thời hạn tối đa của cả chuỗi (không gia hạn qua làm mới)
+  familyExpiresAt DateTime      @default(now()) @map("family_expires_at") @db.Timestamptz(6)
+  policy          SessionPolicy @default(LEARNER)
+  /// Hết hạn nếu không làm mới (idle); luôn ≤ family_expires_at
+  expiresAt       DateTime      @map("expires_at") @db.Timestamptz(6)
+  revokedAt       DateTime?     @map("revoked_at") @db.Timestamptz(6)
+  revokedReason   String?       @map("revoked_reason")
+  replacedById    String?       @map("replaced_by_id") @db.Uuid
+  userAgent       String?       @map("user_agent")
+  ip              String?
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  user            User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("session")
+}
+
+model RoleAssignment {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  userId         String        @map("user_id") @db.Uuid
+  role           Role
+  /// NULL chỉ với SUPER_ADMIN (phạm vi nền tảng)
+  organizationId String?       @map("organization_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById    String?       @map("created_by") @db.Uuid
+  revokedAt      DateTime?     @map("revoked_at") @db.Timestamptz(6)
+  user           User          @relation(fields: [userId], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("role_assignment")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  at             DateTime @default(now()) @db.Timestamptz(6)
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  action         String
+  resourceType   String   @map("resource_type")
+  resourceId     String?  @map("resource_id")
+  data           Json?
+  ip             String?
+  requestId      String?  @map("request_id")
+
+  @@index([organizationId, at])
+  @@index([actorUserId, at])
+  @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// Giáo trình (dữ liệu dùng chung của nền tảng – không thuộc trung tâm).
+// Chỉ lưu CẤU TRÚC (mã, tên cấp độ, phiên bản, danh sách bài do chủ sản phẩm nhập).
+// ---------------------------------------------------------------------------
+
+enum LevelStructure {
+  /// Theo kỹ năng ngôn ngữ
+  LANGUAGE
+  /// Theo chủ đề kiến thức xã hội (KIIP cấp 5)
+  SOCIETY
+}
+
+enum EditionStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum LicenseStatus {
+  /// Chưa xác nhận quyền sử dụng – chỉ lưu khung, không số hóa nội dung
+  UNCONFIRMED
+  /// Đã có văn bản cho phép
+  CONFIRMED
+  /// Nội dung do trung tâm/nền tảng tự biên soạn
+  OWN_CONTENT
+}
+
+enum DistributionChannel {
+  CLASS_INTERNAL
+  B2C
+  MARKETPLACE
+}
+
+model CurriculumSeries {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  code      String            @unique
+  nameVi    String            @map("name_vi")
+  nameKo    String?           @map("name_ko")
+  sortOrder Int               @default(0) @map("sort_order")
+  status    RecordStatus      @default(ACTIVE)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  levels    CurriculumLevel[]
+
+  @@map("curriculum_series")
+}
+
+model CurriculumLevel {
+  id        String              @id @default(uuid(7)) @db.Uuid
+  seriesId  String              @map("series_id") @db.Uuid
+  /// Mã chương trình (D-B03), vd. TH01, KIIP05-B
+  code      String              @unique
+  nameVi    String              @map("name_vi")
+  nameKo    String?             @map("name_ko")
+  structure LevelStructure      @default(LANGUAGE)
+  sortOrder Int                 @default(0) @map("sort_order")
+  status    RecordStatus        @default(ACTIVE)
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  series    CurriculumSeries    @relation(fields: [seriesId], references: [id])
+  editions  CurriculumEdition[]
+
+  @@map("curriculum_level")
+}
+
+model CurriculumEdition {
+  id                String                   @id @default(uuid(7)) @db.Uuid
+  levelId           String                   @map("level_id") @db.Uuid
+  /// Tên phiên bản giáo trình, vd. "Bản 2024"
+  name              String
+  publishYear       Int?                     @map("publish_year")
+  publisher         String?
+  rightsHolder      String?                  @map("rights_holder")
+  licenseStatus     LicenseStatus            @default(UNCONFIRMED) @map("license_status")
+  allowedChannels   DistributionChannel[]    @default([]) @map("allowed_channels")
+  licenseValidUntil DateTime?                @map("license_valid_until") @db.Date
+  licenseNote       String?                  @map("license_note")
+  status            EditionStatus            @default(DRAFT)
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById       String?                  @map("created_by") @db.Uuid
+  level             CurriculumLevel          @relation(fields: [levelId], references: [id])
+  lessons           Lesson[]
+  grants            OrganizationCurriculum[]
+
+  @@unique([levelId, name])
+  @@map("curriculum_edition")
+}
+
+model Lesson {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  editionId String            @map("edition_id") @db.Uuid
+  number    Int
+  titleVi   String            @map("title_vi")
+  titleKo   String?           @map("title_ko")
+  status    RecordStatus      @default(ACTIVE)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  edition   CurriculumEdition @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId, number])
+  @@map("lesson")
+}
+
+/// Giáo trình được cấp cho trung tâm (RLS theo organization_id)
+model OrganizationCurriculum {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  editionId      String            @map("edition_id") @db.Uuid
+  grantedById    String?           @map("granted_by") @db.Uuid
+  grantedAt      DateTime          @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedAt      DateTime?         @map("revoked_at") @db.Timestamptz(6)
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  edition        CurriculumEdition @relation(fields: [editionId], references: [id])
+
+  @@index([organizationId])
+  @@map("organization_curriculum")
+}
+
+enum GuardianLinkStatus {
+  /// Học viên đã thành niên: chờ học viên đồng ý chia sẻ dữ liệu
+  PENDING_CONSENT
+  ACTIVE
+  REJECTED
+  REVOKED
+}
+
+/// Liên kết phụ huynh – học viên do trung tâm tạo và xác thực (D-B21). RLS theo organization_id.
+model GuardianLink {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  organizationId   String             @map("organization_id") @db.Uuid
+  guardianUserId   String             @map("guardian_user_id") @db.Uuid
+  studentUserId    String             @map("student_user_id") @db.Uuid
+  /// vd. Bố, Mẹ, Người giám hộ
+  relationship     String
+  status           GuardianLinkStatus
+  verifiedById     String             @map("verified_by") @db.Uuid
+  verifiedAt       DateTime           @default(now()) @map("verified_at") @db.Timestamptz(6)
+  /// Cách trung tâm xác minh quyền giám hộ (bắt buộc với học viên chưa thành niên)
+  verificationNote String?            @map("verification_note")
+  consentAt        DateTime?          @map("consent_at") @db.Timestamptz(6)
+  rejectedAt       DateTime?          @map("rejected_at") @db.Timestamptz(6)
+  revokedAt        DateTime?          @map("revoked_at") @db.Timestamptz(6)
+  revokedById      String?            @map("revoked_by") @db.Uuid
+  revokedReason    String?            @map("revoked_reason")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId, studentUserId])
+  @@index([guardianUserId])
+  @@map("guardian_link")
+}
+
+// ---------------------------------------------------------------------------
+// Lớp học, ghi danh, lịch học (RLS theo organization_id)
+// ---------------------------------------------------------------------------
+
+enum ClassStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+model CourseClass {
+  id                String      @id @default(uuid(7)) @db.Uuid
+  organizationId    String      @map("organization_id") @db.Uuid
+  branchId          String      @map("branch_id") @db.Uuid
+  editionId         String      @map("edition_id") @db.Uuid
+  name              String
+  startDate         DateTime    @map("start_date") @db.Date
+  plannedSessions   Int         @map("planned_sessions")
+  /// Bài bắt đầu (số bài trong phiên bản) và số buổi cho mỗi bài – để gợi ý bài dự kiến từng buổi
+  startLessonNumber Int         @map("start_lesson_number")
+  sessionsPerLesson Int         @default(1) @map("sessions_per_lesson")
+  defaultRoomId     String?     @map("default_room_id") @db.Uuid
+  /// Học phí tham chiếu (VND). Không kế toán/thu tiền ở Phase 1 (D-B10)
+  tuitionAmount     Int?        @map("tuition_amount")
+  status            ClassStatus @default(OPEN)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById       String?     @map("created_by") @db.Uuid
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name])
+  @@map("class")
+}
+
+model ClassTeacher {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  teacherUserId  String    @map("teacher_user_id") @db.Uuid
+  validFrom      DateTime  @map("valid_from") @db.Date
+  /// NULL = đang phụ trách
+  validTo        DateTime? @map("valid_to") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId, teacherUserId])
+  @@index([classId])
+  @@map("class_teacher")
+}
+
+model ScheduleRule {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  classId        String    @map("class_id") @db.Uuid
+  /// ISO: 1 = Thứ 2 … 7 = Chủ nhật
+  weekday        Int
+  /// Giờ địa phương của cơ sở, HH:MM
+  startTime      String    @map("start_time")
+  endTime        String    @map("end_time")
+  validFrom      DateTime  @map("valid_from") @db.Date
+  validTo        DateTime? @map("valid_to") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([classId])
+  @@map("schedule_rule")
+}
+
+enum SessionKind {
+  REGULAR
+  MAKEUP
+  EXTRA
+  EXAM
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model ClassSession {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  classId         String        @map("class_id") @db.Uuid
+  /// Số thứ tự buổi chính khóa (1..planned_sessions); NULL với buổi bù/thêm/kiểm tra
+  number          Int?
+  kind            SessionKind   @default(REGULAR)
+  startsAt        DateTime      @map("starts_at") @db.Timestamptz(6)
+  endsAt          DateTime      @map("ends_at") @db.Timestamptz(6)
+  roomId          String?       @map("room_id") @db.Uuid
+  teacherUserId   String?       @map("teacher_user_id") @db.Uuid
+  plannedLessonId String?       @map("planned_lesson_id") @db.Uuid
+  status          SessionStatus @default(SCHEDULED)
+  cancelReason    String?       @map("cancel_reason")
+  makeupForId     String?       @map("makeup_for_id") @db.Uuid
+  version         Int           @default(0)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, startsAt])
+  @@index([classId, startsAt])
+  @@index([teacherUserId, startsAt])
+  @@map("class_session")
+}
+
+/// Lịch sử thay đổi buổi học (chỉ thêm)
+model SessionChange {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  changeType     String   @map("change_type")
+  before         Json?
+  after          Json?
+  reason         String?
+  byUserId       String   @map("by_user_id") @db.Uuid
+  at             DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([sessionId])
+  @@map("session_change")
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  ON_HOLD
+  TRANSFERRED
+  WITHDRAWN
+  COMPLETED
+}
+
+model Enrollment {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  classId         String           @map("class_id") @db.Uuid
+  studentUserId   String           @map("student_user_id") @db.Uuid
+  status          EnrollmentStatus @default(ACTIVE)
+  startDate       DateTime         @map("start_date") @db.Date
+  endDate         DateTime?        @map("end_date") @db.Date
+  holdFrom        DateTime?        @map("hold_from") @db.Date
+  holdUntil       DateTime?        @map("hold_until") @db.Date
+  transferredToId String?          @map("transferred_to_id") @db.Uuid
+  note            String?
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([organizationId, studentUserId])
+  @@index([classId])
+  @@map("enrollment")
+}
+
+// ---------------------------------------------------------------------------
+// Điểm danh và nội dung buổi học (RLS theo organization_id)
+// ---------------------------------------------------------------------------
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  EXCUSED
+  ABSENT
+}
+
+model Attendance {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  sessionId      String           @map("session_id") @db.Uuid
+  studentUserId  String           @map("student_user_id") @db.Uuid
+  status         AttendanceStatus
+  note           String?
+  recordedById   String           @map("recorded_by") @db.Uuid
+  recordedAt     DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  version        Int              @default(0)
+
+  @@unique([sessionId, studentUserId])
+  @@index([organizationId, studentUserId])
+  @@map("attendance")
+}
+
+/// Lịch sử điểm danh (chỉ thêm): mọi lần ghi/sửa, ai sửa, lý do
+model AttendanceEvent {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  sessionId      String            @map("session_id") @db.Uuid
+  studentUserId  String            @map("student_user_id") @db.Uuid
+  before         AttendanceStatus?
+  after          AttendanceStatus
+  note           String?
+  reason         String?
+  /// TEACHER | CENTER_ADMIN | REQUEST_APPROVED
+  source         String
+  byUserId       String            @map("by_user_id") @db.Uuid
+  at             DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@index([sessionId])
+  @@map("attendance_event")
+}
+
+model SessionLog {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  sessionId      String   @unique @map("session_id") @db.Uuid
+  note           String?
+  recordedById   String   @map("recorded_by") @db.Uuid
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("session_log")
+}
+
+enum LessonCoverage {
+  DONE
+  PARTIAL
+}
+
+/// Bài đã dạy trong buổi
+model SessionLesson {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  sessionId      String         @map("session_id") @db.Uuid
+  lessonId       String         @map("lesson_id") @db.Uuid
+  coverage       LessonCoverage
+
+  @@unique([sessionId, lessonId])
+  @@map("session_lesson")
+}
+
+/// Nhận xét của giáo viên về học viên trong buổi
+model StudentComment {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  sessionId       String   @map("session_id") @db.Uuid
+  studentUserId   String   @map("student_user_id") @db.Uuid
+  body            String
+  /// true: học viên và phụ huynh (liên kết hiệu lực) xem được
+  visibleToFamily Boolean  @default(false) @map("visible_to_family")
+  authorId        String   @map("author_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([sessionId, studentUserId])
+  @@map("student_comment")
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// D-B19: sau thời hạn sửa, giáo viên gửi yêu cầu; quản lý trung tâm duyệt
+model AttendanceChangeRequest {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  sessionId      String              @map("session_id") @db.Uuid
+  requestedById  String              @map("requested_by") @db.Uuid
+  /// [{ studentUserId, status, note? }]
+  changes        Json
+  reason         String
+  status         ChangeRequestStatus @default(PENDING)
+  decidedById    String?             @map("decided_by") @db.Uuid
+  decidedAt      DateTime?           @map("decided_at") @db.Timestamptz(6)
+  decisionNote   String?             @map("decision_note")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([organizationId, status])
+  @@map("attendance_change_request")
+}

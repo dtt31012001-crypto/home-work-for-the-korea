@@ -1,0 +1,24 @@
+# Môi trường phát triển cục bộ (Development). KHÔNG dùng cho staging/production – xem deploy/.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: th
+      POSTGRES_PASSWORD: th_dev_only
+      POSTGRES_DB: th_dev
+      APP_DB_USER: th_app
+      APP_DB_PASSWORD: th_app_dev_only
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/db-init:/docker-entrypoint-initdb.d:ro
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+  # Lưu trữ S3-compatible (SeaweedFS) – cổng S3: 8333
+  object-storage:
+    image: chrislusf/seaweedfs:4.45
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333"]
+    ports: ["8333:8333"]
+volumes:
+  pgdata:

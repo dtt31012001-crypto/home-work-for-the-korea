@@ -1,6 +1,6 @@
 # 07 · Quyết định – đã duyệt, còn lại, kỹ thuật đã chốt
 
-> Cập nhật: 2026-11-25 sau buổi review FIRST TASK.
+> Cập nhật: 2026-11-25 – lần review 2: duyệt D-B17, D-B21, D-B19, D-B03, D-B10, D-B20, D-T04, D-T12; cho phép triển khai Phase 1.
 > Nguyên tắc: chủ sản phẩm chỉ quyết định những gì ảnh hưởng đáng kể đến **nghiệp vụ, chi phí, pháp lý hoặc khả năng mở rộng**. Chi tiết kỹ thuật thuần túy do nhóm kỹ thuật chốt theo tiêu chí *đơn giản, ổn định, dễ bảo trì, chi phí hợp lý, mở rộng được* (§3) — chủ sản phẩm có quyền phủ quyết.
 > Cách phản hồi: `D-xx: Đồng ý` / `D-xx: Chọn …` / `D-xx: Khác – …`.
 
@@ -8,35 +8,44 @@
 
 ## 1. Đã phê duyệt
 
+### 1.1 Lần 1 (review FIRST TASK)
 | Mã | Nội dung |
 |---|---|
-| D-B15 | PH: tài khoản, liên kết PH–HV, xem lịch và điểm danh ở Phase 1; xem tình trạng làm bài ngay khi Phase 2 có giao bài |
-| (kiến trúc) | Learning Progress là module độc lập, không phụ thuộc AI |
-| (kiến trúc) | Multi-tenant + Modular Monolith; không microservices giai đoạn đầu |
-| (nghiệp vụ) | Tái sử dụng có chọn lọc phân tích Homework cũ, bỏ phần không phù hợp → [08](08-homework-assessment.md) |
-| (giáo trình) | Hai hệ chính thức TH và KIIP; thiết kế đủ cấp độ; không tự tạo nội dung khi chưa có dữ liệu và quyền |
-| D-B10 (một phần) | Không Marketplace, không thanh toán trực tuyến, không thương mại hóa nâng cao trong MVP |
-| (UX) | Ít chữ, thao tác đơn giản, icon đồng bộ, mobile first cho HV/PH, gộp màn hình, không thêm khái niệm thừa |
-| (lộ trình) | Phân loại màn hình P0/P1/P2 → [06 §3](06-mvp-roadmap.md#3-danh-mục-màn-hình-mvp-và-mức-ưu-tiên) |
+| D-B15 | PH: tài khoản, liên kết, lịch, điểm danh ở Phase 1; tình trạng bài ở Phase 2 |
+| (kiến trúc) | Learning Progress độc lập AI · Multi-tenant + Modular Monolith · không microservices |
+| (nghiệp vụ) | Tái sử dụng có chọn lọc Homework cũ → [08](08-homework-assessment.md) |
+| (giáo trình) | Hai hệ TH và KIIP, đủ cấp độ, không tự tạo nội dung có bản quyền |
+| (phạm vi) | Không Marketplace, thanh toán trực tuyến, thương mại hóa nâng cao trong MVP |
+| (UX) | Ít chữ, ít thao tác, icon đồng bộ, mobile first HV/PH, gộp màn hình, P0/P1/P2 |
 
----
+### 1.2 Lần 2 (review D-B17) – cho phép triển khai toàn bộ Phase 1
+
+| Mã | Quyết định đã duyệt | Cách hệ thống thực hiện |
+|---|---|---|
+| **D-B17** | Đăng nhập SĐT/email + mật khẩu; trung tâm cấp mật khẩu tạm. Một người nhiều vai trò, nhiều trung tâm, không trùng tài khoản. Tự đăng ký B2C ở phase sau; kiến trúc sẵn cho Google/OTP | `user_identity` (loại + giá trị chuẩn hóa, duy nhất) → thêm Google/OTP chỉ là thêm loại định danh + luồng xác minh. Giao diện cấp tài khoản nằm trong màn hình Giáo viên/Học viên |
+| **Phiên đăng nhập** | HV/PH: 30 ngày nếu đủ an toàn. Quản trị: chặt hơn, cấu hình được | Xem §1.3 – chính sách theo vai trò cao nhất, tính lại mỗi lần làm mới phiên |
+| **D-B21** | Trung tâm tạo & xác thực liên kết; HV trưởng thành phải đồng ý; HV chưa thành niên: xác minh người giám hộ; nhiều–nhiều; không bắt buộc; thu hồi ngay | Liên kết chỉ có hiệu lực khi: trung tâm đã xác minh **và** (HV < 18 tuổi **hoặc** HV đã đồng ý). HV tròn 18 tuổi → liên kết cũ tự tạm dừng cho tới khi HV đồng ý |
+| **D-B19** | GV sửa điểm danh trong 48h; sau đó cần quản lý trung tâm duyệt; lưu lịch sử; cấu hình được; cảnh báo lớp chậm ≥ 1 bài (cấu hình được) | Cấu hình theo trung tâm; sau hạn GV gửi *yêu cầu sửa*, CA duyệt/từ chối |
+| **D-B03** | Mã TH01–TH06, KIIP00–KIIP04, KIIP05-B, KIIP05-A; quản lý bằng dữ liệu; nhập dần từng bài theo phiên bản; không tự tạo nội dung | Mã nằm trong dữ liệu khởi tạo (sửa được trên giao diện); không có danh sách bài mẫu |
+| **D-B10** | Phase 1 chỉ học phí tham chiếu; vượt giới hạn → chặn tạo mới, không ảnh hưởng người đang dùng | Một trường số tiền trên lớp; giới hạn HV/GV theo trung tâm |
+| **D-B20** | Không hardcode quy mô; dữ liệu thử riêng cho Dev/Staging; thông tin Horizon cung cấp trước vận hành thật | Không có giới hạn cứng trong code; seed chỉ chạy ở dev/test |
+| **D-T04** | Máy chủ ưu tiên tại VN; Docker Compose; PostgreSQL; Redis; S3-compatible; sao lưu độc lập; tách Dev/Staging/Production. **Không tự thuê dịch vụ trả phí** | Compose cho từng môi trường, script sao lưu/khôi phục; chưa thuê dịch vụ nào |
+| **D-T12** | GitHub Private; mở PR để chạy CI; không merge khi CI chưa đạt; không push bí mật/dữ liệu thật/giáo trình/backup | PR #1 đã mở. ⚠️ Repo hiện đang **Public** – chủ sản phẩm cần chuyển sang Private |
+| **Security** | Hoàn thiện RLS; kiểm thử cách ly ở tầng ứng dụng và database; không đưa dữ liệu thật vào trước khi kiểm tra bảo mật | Xem [04 §6](04-system-architecture.md#6-multi-tenancy) và bộ test bảo mật Phase 1 |
+
+### 1.3 Chính sách phiên đăng nhập (đề xuất theo yêu cầu, mặc định cấu hình được qua biến môi trường)
+
+| Nhóm (theo vai trò cao nhất đang có) | Hết hạn nếu không dùng | Thời hạn tối đa từ lúc đăng nhập | Ghi chú |
+|---|---|---|---|
+| Quản trị (Super Admin, Center Admin) | 2 giờ | 12 giờ | Phải đăng nhập lại mỗi ngày làm việc |
+| Giáo viên | 7 ngày | 30 ngày | Dữ liệu nhiều học viên, dùng điện thoại điểm danh |
+| Học viên, Phụ huynh | 30 ngày | 90 ngày | Theo duyệt "duy trì 30 ngày" |
+
+Mọi nhóm: access token 15 phút; khóa tài khoản/đổi mật khẩu/thu hồi vai trò có hiệu lực ngay; được gán vai trò quản trị khi đang đăng nhập → lần làm mới tiếp theo áp chính sách chặt hơn.
 
 ## 2. Quyết định còn lại
 
-Cột **Trước code**: *Có* = phải chốt trước khi viết code Phase 0/1 · *Phase n* = phải chốt trước khi làm phase đó · *Không* = có mặc định an toàn, đổi được về sau.
-
-### 2.1 Bắt buộc chốt trước khi viết code
-
-| Mã | Vấn đề | Phương án | Đề xuất | Lý do | Ảnh hưởng nghiệp vụ | Chi phí / rủi ro | Trước code |
-|---|---|---|---|---|---|---|---|
-| **D-B17** | Cách đăng nhập và cấp tài khoản trong MVP | (a) SĐT/email + mật khẩu; trung tâm cấp **mật khẩu tạm**, bắt buộc đổi lần đầu · (b) (a) + OTP SMS/Zalo · (c) (a) + Google | **(a)** | Không phát sinh phí tin nhắn; phù hợp tài khoản do trung tâm tạo; kiến trúc sẵn sàng thêm OTP/Google | Trung tâm phải gửi mật khẩu tạm cho HV/PH (trực tiếp/Zalo cá nhân); quên mật khẩu không có email → nhờ trung tâm đặt lại | (b): phí mỗi tin SMS/ZNS + thủ tục đăng ký brandname/OA. (a): rủi ro mật khẩu tạm bị lộ → giảm bằng hết hạn sau 7 ngày và bắt buộc đổi | **Có** |
-| **D-B21** | Quy tắc liên kết phụ huynh – học viên | (a) Center Admin tạo liên kết; HV **≥ 18 tuổi phải đồng ý** trong app; HV < 18 do Center Admin xác nhận người giám hộ · (b) Center Admin tạo, không cần HV đồng ý · (c) PH tự yêu cầu bằng mã mời | **(a)**; (c) để sau | Master Prompt yêu cầu HV trưởng thành phải đồng ý; trung tâm là nơi đã xác minh PH ngoài đời | Cần **ngày sinh HV** để biết ≥ 18; HV trưởng thành có thể từ chối | (b) rủi ro pháp lý về dữ liệu cá nhân người trưởng thành; (c) thêm luồng xác minh | **Có** |
-| **D-B19** | Giá trị mặc định Phase 1 | Cửa sổ GV sửa điểm danh: 24h / **48h** / 7 ngày · Ngưỡng "chậm tiến độ": **≥ 1 bài** / ≥ 2 bài | 48h; ≥ 1 bài; cấu hình được theo trung tâm | Đủ thời gian cho GV sửa nhầm, vẫn giữ kỷ luật dữ liệu | Quyết định khi nào CA phải can thiệp sửa điểm danh; độ nhạy cảnh báo | Thấp – đổi được bằng cấu hình | **Có** (chỉ cần chấp thuận mặc định) |
-| **D-B03** | Mã chương trình TH01–TH06, KIIP00–KIIP05-A/B | Dùng mã đề xuất · Đổi mã | **Dùng mã đề xuất** | Ngắn, dễ đọc; lưu trong dữ liệu nên đổi được không cần sửa code | Hiển thị trên lớp, báo cáo, file import | Thấp | **Có** (dữ liệu khởi tạo) |
-| **D-B10** | Học phí và giới hạn gói trong MVP (thanh toán trực tuyến đã loại) | (a) Lớp có **một trường học phí** để tham chiếu, không theo dõi đóng tiền · (b) (a) + trạng thái đã/chưa đóng từng HV nhập tay · Khi trung tâm vượt giới hạn: chặn tạo mới / chỉ cảnh báo | **(a)**; vượt giới hạn: **chỉ chặn tạo mới**, không ảnh hưởng HV đang học | Không tạo thêm khái niệm tài chính khi chưa có module tài chính; (b) có thể thêm ở P2 | Trung tâm vẫn theo dõi đóng học phí ngoài hệ thống trong MVP | Thấp | **Có** (form lớp) |
-| **D-B20** | Thông tin Horizon cho pilot | Số cơ sở, lớp, GV, HV; tỷ lệ HV < 18 tuổi; múi giờ (có HV ở Hàn Quốc?); lớp pilot; quy trình hiện tại | Cung cấp trước Phase 1 | Xác định dữ liệu thử, cấu hình, quy mô hạ tầng | Quyết định lớp pilot và kịch bản nghiệm thu | Thiếu → nghiệm thu trên giả định | **Có** |
-| **D-T04** | Hạ tầng và vị trí lưu dữ liệu | (a) VPS/cloud **tại Việt Nam** · (b) Cloud quốc tế vùng Singapore · (c) Cloud quốc tế vùng Seoul | **(a)** cho DB và file; Docker Compose trên 1 máy chủ + lưu trữ S3-compatible; backup sang vị trí thứ hai | Dữ liệu cá nhân HV/PH (có trẻ vị thành niên) ở trong nước giảm thủ tục chuyển dữ liệu ra nước ngoài; chi phí pilot thấp | Không ảnh hưởng tính năng | (a) cần chọn nhà cung cấp có S3-compatible và backup tốt. (b)/(c) có thể phải lập hồ sơ chuyển dữ liệu ra nước ngoài – cần pháp chế. Chi phí pilot: một máy chủ cỡ vừa + lưu trữ | **Có** (trước khi dựng staging) |
-| **D-T12** | Nơi lưu mã nguồn | (a) GitHub Private dưới **Organization** của công ty · (b) GitHub Private dưới tài khoản cá nhân | **(a)** | Quyền sở hữu thuộc tổ chức, dễ thêm/bớt thành viên; xem [09](09-github-repository-plan.md) | Không | Gói miễn phí dùng được; **bảo vệ nhánh** cho repo private cần gói trả phí (Team) – có thể bật sau | **Có** |
+Không còn quyết định nào chặn Phase 1. Các mục dưới đây chặn các phase sau.
 
 ### 2.2 Chốt trước Phase 2
 

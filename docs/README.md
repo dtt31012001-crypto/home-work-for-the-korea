@@ -18,6 +18,7 @@
 | 7 | [07-decisions-pending.md](07-decisions-pending.md) | Quyết định đã duyệt · còn lại · kỹ thuật đã chốt |
 | 8 | [08-homework-assessment.md](08-homework-assessment.md) | Đặc tả bài tập & đánh giá (thay bộ Homework cũ) |
 | 9 | [09-github-repository-plan.md](09-github-repository-plan.md) | Phương án lưu trữ trên GitHub Private |
+| – | [development.md](development.md) · [operations.md](operations.md) · [huong-dan-su-dung.md](huong-dan-su-dung.md) | Chạy dev & danh sách API · Triển khai, sao lưu · Hướng dẫn sử dụng nhanh Phase 1 |
 
 **Thứ tự đọc gợi ý:** 07 → 06 → 01 → 02/03/08 → 04/05/09.
 
