@@ -128,6 +128,11 @@ export class ClassesService {
     });
   }
 
+  /** Dùng chung cho module điểm danh/workspace. */
+  sessionViewsPublic(tx: Tx, sessions: ClassSession[], timezone: string): Promise<SessionView[]> {
+    return this.sessionViews(tx, sessions, timezone);
+  }
+
   private async sessionViews(tx: Tx, sessions: ClassSession[], timezone: string): Promise<SessionView[]> {
     const roomIds = [...new Set(sessions.map((s) => s.roomId).filter(Boolean))] as string[];
     const teacherIds = [...new Set(sessions.map((s) => s.teacherUserId).filter(Boolean))] as string[];

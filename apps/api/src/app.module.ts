@@ -10,6 +10,7 @@ import { CsrfGuard } from "./common/csrf.guard";
 import { CurriculumModule } from "./curriculum/curriculum.module";
 import { PeopleModule } from "./people/people.module";
 import { ClassesModule } from "./classes/classes.module";
+import { AttendanceModule } from "./attendance/attendance.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PrismaService } from "./prisma/prisma.service";
@@ -37,6 +38,7 @@ class HealthController {
     CurriculumModule,
     PeopleModule,
     ClassesModule,
+    AttendanceModule,
   ],
   controllers: [HealthController],
   providers: [

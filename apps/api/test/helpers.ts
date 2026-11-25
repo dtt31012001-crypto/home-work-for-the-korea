@@ -23,7 +23,7 @@ export async function createApp(): Promise<INestApplication> {
 export async function resetDb() {
   // TRUNCATE không kích hoạt trigger chặn UPDATE/DELETE của audit_log
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "audit_log", "session", "role_assignment", "password_credential", "user_identity", "app_user", "organization", "curriculum_edition", "session_change", "class_session", "enrollment", "schedule_rule", "class_teacher", "class" CASCADE',
+    'TRUNCATE "audit_log", "session", "role_assignment", "password_credential", "user_identity", "app_user", "organization", "curriculum_edition", "attendance_event", "attendance", "session_log", "session_lesson", "student_comment", "attendance_change_request", "session_change", "class_session", "enrollment", "schedule_rule", "class_teacher", "class" CASCADE',
   );
   // Giữ dữ liệu tham chiếu đã duyệt (mã chương trình), xóa cấp độ do test tạo thêm
   await prisma.$executeRawUnsafe(`DELETE FROM "curriculum_level" WHERE "id"::text NOT LIKE '01900000-0000-7000-8000-%'`);

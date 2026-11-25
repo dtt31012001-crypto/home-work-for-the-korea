@@ -1,11 +1,12 @@
 "use client";
 
-import { SESSION_KIND_LABEL, type ClassDetail, type ClassSummary, type OrganizationDetail, type PersonRow, type SessionView, type WeeklyRuleInput } from "@th/contracts";
+import { SESSION_KIND_LABEL, type ClassDetail, type ClassProgress, type ClassSummary, type OrganizationDetail, type PersonRow, type SessionView, type WeeklyRuleInput } from "@th/contracts";
 import { ArrowLeft, CalendarClock, CalendarPlus, CalendarX, Pencil, UserCog, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { EnrollmentBadge, PhaseBadge, SessionBadges } from "@/components/class-badges";
+import { ProgressView } from "@/components/progress-view";
 import { WeeklyRulesEditor } from "@/components/weekly-rules";
 import { useOrgId } from "@/components/workspace";
 import { ApiError, api } from "@/lib/api";
@@ -13,7 +14,7 @@ import { fmtDate, fmtMoney, localDay } from "@/lib/format";
 import { useResource } from "@/lib/use-resource";
 import { Dialog, EmptyState, ErrorBox, Field, PageHeader, PrimaryButton, Section, SecondaryButton, SelectField, Spinner, Tabs, TextArea } from "@/components/ui";
 
-type Tab = "students" | "sessions" | "info";
+type Tab = "students" | "sessions" | "progress" | "info";
 const vnDate = (d: string) => fmtDate(d + "T00:00:00Z", "UTC", { weekday: "short" });
 
 /** Gửi form trong hộp thoại: quản lý trạng thái tải/lỗi dùng chung. */
@@ -105,11 +106,13 @@ export default function ClassDetailPage() {
         tabs={[
           { value: "students", label: `Học viên (${data.activeStudents})` },
           { value: "sessions", label: `Buổi học (${data.sessions.filter((s) => s.status !== "CANCELLED").length})` },
+          { value: "progress", label: "Tiến độ" },
           { value: "info", label: "Thông tin" },
         ]}
       />
       {tab === "students" && <StudentsTab orgId={orgId} cls={data} onChanged={reload} />}
       {tab === "sessions" && <SessionsTab orgId={orgId} cls={data} onChanged={reload} />}
+      {tab === "progress" && <ProgressTab orgId={orgId} classId={data.id} />}
       {tab === "info" && <InfoTab orgId={orgId} cls={data} onChanged={reload} />}
       {dialog === "teacher" && <ChangeTeacherDialog orgId={orgId} cls={data} onClose={() => setDialog(undefined)} onDone={reload} />}
       {dialog === "schedule" && <ChangeScheduleDialog orgId={orgId} cls={data} onClose={() => setDialog(undefined)} onDone={reload} />}
@@ -316,6 +319,11 @@ function SessionsTab({ orgId, cls, onChanged }: { orgId: string; cls: ClassDetai
                 {s.cancelReason && ` · Lý do nghỉ: ${s.cancelReason}`}
               </p>
             </div>
+            {s.status !== "CANCELLED" && s.date <= today && (
+              <Link href={`/trung-tam/buoi/${s.id}`} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold hover:bg-canvas">
+                {s.status === "COMPLETED" ? "Xem điểm danh" : "Điểm danh"}
+              </Link>
+            )}
             {s.status === "SCHEDULED" && (
               <div className="flex gap-1">
                 <button onClick={() => setEdit(s)} className="rounded-lg p-2 text-muted hover:bg-canvas" aria-label={`Đổi buổi ${vnDate(s.date)}`}>
@@ -563,4 +571,11 @@ function InfoTab({ orgId, cls, onChanged }: { orgId: string; cls: ClassDetail; o
       </form>
     </Section>
   );
+}
+
+function ProgressTab({ orgId, classId }: { orgId: string; classId: string }) {
+  const { data, error } = useResource<ClassProgress>(`/api/organizations/${orgId}/classes/${classId}/progress`);
+  if (error) return <ErrorBox message={error.message} />;
+  if (!data) return <Spinner />;
+  return <ProgressView p={data} />;
 }
