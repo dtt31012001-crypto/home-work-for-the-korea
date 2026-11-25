@@ -271,7 +271,7 @@ Nhánh `feat/d-b17-auth`. Mỗi module: kiểm thử API với PostgreSQL thật
 
 | Hạng mục | Lý do | Cần gì |
 |---|---|---|
-| C-05: điều khoản sử dụng + chính sách dữ liệu | Nội dung pháp lý phải do chủ sản phẩm/luật sư cung cấp; không tự soạn | Văn bản điều khoản & chính sách dữ liệu cá nhân |
+| C-05: điều khoản sử dụng + chính sách dữ liệu (trang chủ `/` đã xong) | Nội dung pháp lý phải do chủ sản phẩm/luật sư cung cấp; không tự soạn | Văn bản điều khoản & chính sách dữ liệu cá nhân |
 | Quên mật khẩu qua email | Cần dịch vụ gửi email (có thể trả phí) | Phê duyệt nhà cung cấp email; hiện tại: trung tâm đặt lại mật khẩu tạm |
 | Staging thật + diễn tập khôi phục trên staging | Cần thuê máy chủ VN | Phê duyệt nhà cung cấp/chi phí; đã diễn tập trên môi trường thử cục bộ |
 | E2E kịch bản A trong CI | Các kịch bản giao diện đang chạy cục bộ (Playwright) | Đưa vào CI sau khi chốt staging |
