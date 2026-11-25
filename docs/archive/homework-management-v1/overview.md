@@ -60,7 +60,7 @@ Nền tảng web (tiếng Việt, responsive) cho phép:
 | DB | PostgreSQL 16 + Prisma (migration) | Quan hệ phức tạp, transaction, ràng buộc |
 | Queue | Redis + BullMQ, **worker là process riêng** | AI grading bất đồng bộ, retry, không chặn request |
 | File | S3-compatible (MinIO khi dev), upload/download bằng **presigned URL** | Không lưu file trong DB, file riêng tư |
-| AI | `@anthropic-ai/sdk`, model cấu hình qua env (mặc định `claude-opus-5-5`), structured output (JSON schema) | API key chỉ ở backend/worker |
+| AI | `@anthropic-ai/sdk`, model cấu hình qua env, structured output (JSON schema) | API key chỉ ở backend/worker |
 | Auth | JWT access token ngắn hạn + refresh token xoay vòng, cả hai trong **httpOnly cookie**; CSRF double-submit token | Không lộ token cho JS → giảm rủi ro XSS |
 | Test | Vitest/Jest (unit), Supertest + Testcontainers Postgres/Redis (integration), Playwright (E2E) | Kiểm tra cả DB state, không chỉ HTTP 200 |
 | Deploy | Docker, Docker Compose, Nginx, HTTPS | Theo yêu cầu |

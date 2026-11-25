@@ -5,3 +5,12 @@ node_modules/
 dist/
 .next/
 coverage/
+# Secrets & private data – never commit
+*.pem
+*.key
+*.p12
+*.sql
+*.dump
+uploads/
+storage/
+*.local.*

@@ -144,7 +144,7 @@ Nguyên tắc: **phân quyền = vai trò (RBAC) + phạm vi dữ liệu (scope)
 | Mã | Yêu cầu | Mức |
 |---|---|---|
 | AI-01 | Gọi Anthropic API từ worker; không dùng Claude Code CLI | MUST |
-| AI-02 | Model cấu hình qua env/cấu hình hệ thống; mặc định `claude-opus-5-5` | MUST |
+| AI-02 | Model cấu hình qua env/cấu hình hệ thống | MUST |
 | AI-03 | Đầu vào: đề bài, đáp án tham khảo, rubric, bài làm (đã chuyển rich text → văn bản/LaTeX). **Không gửi** họ tên, mã HS, email | MUST |
 | AI-04 | Đầu ra JSON theo schema (structured output): điểm từng tiêu chí, điểm tổng, độ tin cậy, điểm mạnh/yếu, ý còn thiếu, nhận xét đề xuất, `needs_teacher_review` | MUST |
 | AI-05 | Backend validate: đúng schema, tiêu chí khớp rubric, `0 ≤ điểm ≤ max`, tổng = Σ tiêu chí (tính lại phía server), làm tròn theo bước điểm | MUST |
@@ -383,7 +383,7 @@ Chi tiết sơ đồ ở `business-workflows.md`.
 | Q4 | HS bị rút khỏi lớp khi bài đang mở? | Giữ quyền nộp bài đang làm, không nhận bài mới |
 | Q5 | GV bị gỡ khỏi lớp: bài tập của họ chuyển cho ai? | Admin chọn GV nhận; tạm thời GV chủ nhiệm/Admin xem được |
 | Q6 | Bài thuần trắc nghiệm có công bố điểm ngay khi nộp không? | Tuỳ chọn theo bài, mặc định **tắt** |
-| Q7 | Model AI mặc định và ngân sách tháng? | `claude-opus-5-5`, effort cấu hình được; ngân sách do Admin đặt |
+| Q7 | Model AI mặc định và ngân sách tháng? | Chọn qua đánh giá (xem D-T06 bộ mới); ngân sách do Admin đặt |
 | Q8 | Nhà trường đã đồng ý cho gửi bài làm (ẩn danh) tới dịch vụ AI nước ngoài chưa? | Bật AI theo cấu hình hệ thống, mặc định **tắt** cho tới khi Admin bật |
 | Q9 | Admin có quyền chấm/sửa điểm không? | Không (chỉ xem), để trách nhiệm rõ ràng |
 | Q10 | Cách đăng nhập của HS: username do trường cấp hay email? | Username (mã HS) + mật khẩu ban đầu do Admin cấp |
