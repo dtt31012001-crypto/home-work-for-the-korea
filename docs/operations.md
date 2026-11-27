@@ -92,7 +92,7 @@ Kiến trúc: **một** dịch vụ Render (`render.yaml`, ảnh `deploy/render/
 5. Sau khi đăng nhập được: xóa hai biến `BOOTSTRAP_SUPER_ADMIN_*` (không bắt buộc – các lần khởi động sau không in lại mật khẩu).
 
 ### Lưu ý gói miễn phí
-- Dịch vụ "ngủ" sau 15 phút không có truy cập; lần mở đầu tiên chờ khoảng 1 phút.
+- Dịch vụ "ngủ" sau 15 phút không có truy cập; lần mở đầu tiên chờ khoảng 1 phút. **Đang xử lý bằng UptimeRobot (miễn phí)**: monitor HTTP(s) gọi `https://th-staging.onrender.com/api/health` mỗi 5 phút, gửi cảnh báo qua email khi lỗi. Một dịch vụ chạy liên tục dùng ~720–744 giờ/tháng, trong hạn mức 750 giờ miễn phí của Render. Giải pháp chắc chắn hơn: gói Starter (cần chủ sản phẩm duyệt).
 - Neon gói miễn phí có giới hạn dung lượng và thời gian chạy; database tự "ngủ" khi không dùng.
 - Sao lưu: Neon có khôi phục theo thời điểm trong thời hạn của gói; **chưa** có sao lưu độc lập cho môi trường này – chấp nhận được vì chỉ có dữ liệu thử.
 - Nâng gói trả phí cần chủ sản phẩm duyệt.
